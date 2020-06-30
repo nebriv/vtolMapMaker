@@ -1,0 +1,9 @@
+.idea/
+.idea
+dataSets/
+tiles/
+venv/
+config.conf
+*.vtm
+height.png
+config.conf
