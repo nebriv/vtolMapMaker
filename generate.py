@@ -1,6 +1,5 @@
 import requests
-from bingmaps.apiservices import ElevationsApi
-from geopy.distance import VincentyDistance
+
 import time
 from PIL import Image, ImageOps
 
@@ -17,6 +16,9 @@ from scipy.spatial.distance import pdist, squareform
 import configparser
 
 
+# TODO: Cleanup Code, road height, city density
+
+
 config = configparser.ConfigParser()
 config.read('config.conf')
 
@@ -29,7 +31,7 @@ getData = False
 forceRefresh = False
 
 rebuildCity = True
-disableCityPaint = True
+disableCityPaint = False
 
 centerLong = 12.495228
 centerLat = 41.891866
@@ -46,6 +48,8 @@ offsetAmount = 15
 
 # HM Resolution
 subDivisions = 512
+
+cityAdjust = 20
 
 bingAPIKey = config['BingAPI']['key']
 
@@ -81,12 +85,41 @@ def createHeightMapFile(heights, width, maxHeight, minHeight, buildup):
         print("Height Diff is more than 255, so we need to scale properly")
         scaleFactor = (255/heightDiff)
 
-    print("Current scale factor: %s" % scaleFactor)
+    print("Current height scale factor: %s" % scaleFactor)
 
     image = Image.new('RGBA', (width, width))
 
     maxGreen = 0
     minGreen = 300
+
+    # Finds the new min/max after adjust for the city adjust parameter (To reduce the number of cities)
+    for i in range(width):
+        for j in range(width):
+            if i < width and j < width:
+                index = j + (width * i)
+                buildupValue = (buildup[index] - cityAdjust)
+                greenValue = int(buildupValue)
+
+                if greenValue > maxGreen:
+                    maxGreen = greenValue
+
+                if greenValue < minGreen:
+                    minGreen = greenValue
+
+    # This brute forces a new scale to stretch the new min/max green values to fill the 0-255 bits in the image
+    print("Finding new city scale factor")
+    gVal = maxGreen
+    cityScale = 1.1
+    while gVal != 255 and gVal <= 255:
+        gVal = round(maxGreen * cityScale, 0)
+        cityScale = round(cityScale + .01, 3)
+
+    print("New city Scale Factor (scaling to 255): %s" % cityScale)
+
+    # Reseting min/max for sanity checking
+    maxGreen = 0
+    minGreen = 300
+
 
     for i in range(width):
         for j in range(width):
@@ -99,7 +132,20 @@ def createHeightMapFile(heights, width, maxHeight, minHeight, buildup):
                     belowWater = True
 
                 redValue = int(scaleFactor * (heights[index] - minHeight))
-                greenValue = int(buildup[index] * 2.55)
+
+
+                afterCityAdjust = buildup[index] - cityAdjust
+
+
+                if afterCityAdjust < 0:
+                    buildupValue = ((buildup[index] - cityAdjust) / cityScale)
+                else:
+                    buildupValue = ((buildup[index] - cityAdjust) * cityScale)
+
+                greenValue = int(buildupValue)
+                if greenValue < 0:
+                    greenValue = 0
+
 
                 if greenValue > maxGreen:
                     maxGreen = greenValue
@@ -107,17 +153,8 @@ def createHeightMapFile(heights, width, maxHeight, minHeight, buildup):
                 if greenValue < minGreen:
                     minGreen = greenValue
 
-                greenValue = int(greenValue)
-
                 if belowWater:
                     greenValue = 0
-
-                # print(int(buildup[index]) % 20)
-                #
-                # greenValue = int((int(buildup[index]) % 20) * 20)
-                # if greenValue <= 20:
-                #     greenValue = 0
-                # print(greenValue)
 
                 if disableCityPaint:
                     greenValue = 0
@@ -126,7 +163,6 @@ def createHeightMapFile(heights, width, maxHeight, minHeight, buildup):
                     image.putpixel((i, j), (0,0,0,255))
                 else:
                     image.putpixel((i, j), (redValue, greenValue, 0, 255))
-
 
     image = ImageOps.mirror(image)
     image = ImageOps.flip(image)
@@ -148,7 +184,7 @@ print("Processing Data")
 
 def getBuildupData(subDivisions, southLat, distanceBetween, westLong, eastLong):
     print("Loading GHS-BUILT data")
-    dataset = gdal.Open("C:\\Users\\ben\\Downloads\\GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0\\GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif")
+    dataset = gdal.Open("GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif")
 
     band = dataset.GetRasterBand(1)
 
