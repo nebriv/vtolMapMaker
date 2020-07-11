@@ -55,6 +55,25 @@ class Vector3D:
         return "%s, %s, %s" % (self.x, self.y, self.z)
 
 
+def format_filename(s):
+    import string
+    """Take a string and return a valid filename constructed from the string.
+Uses a whitelist approach: any characters not present in valid_chars are
+removed. Also spaces are replaced with underscores.
+
+Note: this method may produce invalid filenames such as ``, `.` or `..`
+When I use this method I prepend a date string like '2009_01_15_19_46_32_'
+and append a file extension like '.txt', so I avoid the potential of using
+an invalid filename.
+
+https://gist.github.com/seanh/93666
+
+"""
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    filename = ''.join(c for c in s if c in valid_chars)
+    filename = filename.replace(' ', '_')  # I don't like spaces in filenames.
+    return filename
+
 def cordToVector(lat, lon, height=0):
     return Vector3D(lat, lon, height)
 
@@ -72,6 +91,23 @@ def convertToWorldPoint(vector, mapLatitude, mapLongitude):
 
     result = convertGlobaltoWorldPoint(Vector3D((vector.y - mapLongitude) * num2, vector.z, num))
     return result
+
+
+def getGridFromWorldPoint(vector, mapResolution):
+    # public IntVector2 WorldToGridPos(Vector3 worldPos)
+    # {
+    #     Vector3D vector3D = FloatingOrigin.accumOffset + worldPos;
+    #     int x = (int)Math.Round(vector3D.x / (double)this.chunkSize);
+    #     int y = (int)Math.Round(vector3D.z / (double)this.chunkSize);
+    #     return new IntVector2(x, y);
+    # }
+
+    logger.debug("Converting WorldPoint (x:%s,y:%s,z:%s,res:%s) to grid" % (vector.x, vector.y, vector.z, mapResolution))
+
+    x = int(round(vector.x / mapResolution,0))
+    y = int(round(vector.z / mapResolution,0))
+
+    return (x, y)
 
 
 def gpsTupletoUnityWorldPoint(each, latOffset, longOffset, height=0):
@@ -315,13 +351,111 @@ class vtolMapper:
         return genHash(dataHashString)
 
 
-    def saveVTM(self):
-        raise NotImplemented
+    def saveVTM(self, mapID, mapName, mapDescription, mapSize, mapResolution, mapType, edgeMode, biome, seed, airports, roads, vtmFileName):
+        file_lines = []
+
+        file_lines.append("VTMapCustom")
+        file_lines.append("{")
+        file_lines.append("\tmapId = %s" % mapID)
+        file_lines.append("\tmapName = %s" % mapName)
+        file_lines.append("\tmapDescription = %s" % mapDescription)
+        file_lines.append("\tmapType = %s" % mapType)
+        file_lines.append("\tedgeMode = %s" % edgeMode)
+        file_lines.append("\tbiome = %s" % biome)
+        file_lines.append("\tseed = %s" % seed)
+        file_lines.append("\tmapSize = %s" % int(((mapSize / 1000) / 3)))
+
+        file_lines.append("\tTerrainSettings")
+        file_lines.append("\t{")
+        file_lines.append("\t}")
+
+        # Prefabs
+        prefab_id = 0
+
+        file_lines.append("\tStaticPrefabs")
+        file_lines.append("\t{")
+
+        for airport in airports:
+            gamepos = gpsTupletoUnityWorldPoint(airport['cords'], 0, 0, airport['height'])
+
+            grid = getGridFromWorldPoint(gamepos, mapResolution)
+
+            file_lines.append("\t\t\tStaticPrefab")
+            file_lines.append("\t\t\t{")
+            file_lines.append("\t\t\t\t prefab = airbase1")
+            file_lines.append("\t\t\t\t id = %s" % prefab_id)
+            file_lines.append("\t\t\t\t globalPos = (%s)" % str(gamepos))
+            file_lines.append("\t\t\t\t rotation = (0, 311.5949, 0)")
+            file_lines.append("\t\t\t\t grid = (%s, %s)" % (grid[0], grid[1]))
+            file_lines.append("\t\t\t\t tSpacePos = (0, 0, 0)")
+            file_lines.append("\t\t\t\t terrainToLocalMatrix = 0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;")
+            file_lines.append("\t\t\t\t baseName = %s" % airport['name'])
+            file_lines.append("\t\t\t}")
+            prefab_id += 1
+
+        file_lines.append("\t}")
+        # Roads
+
+        # file_lines.append("\tBezierRoads")
+        # file_lines.append("\t{")
+        # file_lines.append("\t\tChunk")
+        # file_lines.append("\t\t{")
+        #
+
+        # with open(vtmFile, 'a') as roadFile:
+        #     roadFile.write("""	BezierRoads
+        # {
+        # 	Chunk
+        # 	{
+        # 		grid = (0,0)\n""")
+        #     for segment in highwaySegments:
+        #         roadFile.write("""			Segment
+        # 		{\n""")
+        #         roadFile.write("""				id = %s\n""" % segment['id'])
+        #         roadFile.write("""				type = %s\n""" % segment['type'])
+        #         roadFile.write("""				bridge = %s\n""" % segment['bridge'])
+        #         roadFile.write("""				length = %s\n""" % segment['length'])
+        #
+        #         roadFile.write("""				s = (%s)\n""" % segment['s'])
+        #         roadFile.write("""				m = (%s)\n""" % segment['m'])
+        #         roadFile.write("""				e = (%s)\n""" % segment['e'])
+        #
+        #         if segment['ns']:
+        #             roadFile.write("""				ns = %s\n""" % segment['ns'])
+        #
+        #         if segment['ps']:
+        #             roadFile.write("""				ps = %s\n""" % segment['ps'])
+        #
+        #         roadFile.write("""			}\n""")
+        #
+        #     roadFile.write("""		}\n""")
+        #     roadFile.write("""	}\n""")
+
+        file_lines.append("}")
+
+        with open(vtmFileName, 'w') as outFile:
+            outFile.writelines(s + '\n' for s in file_lines)
 
     def generateAirportConfig(self):
         pass
 
-    def generate(self, centerLong, centerLat, forceBelowZero = True, forceRefresh = False, rebuildCity=True, disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000, minHighwayLength=5):
+    def generate(self, centerLong, centerLat, forceBelowZero = True, forceRefresh = False, rebuildCity=True, disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000, minHighwayLength=5, mapName=None):
+
+        if mapName == None:
+            raise ValueError("Invalid or missing Map Name")
+
+        mapNameFile = format_filename(mapName)
+
+        mapFolder = os.path.join("maps", mapNameFile)
+
+        vtmFile = os.path.join(mapFolder,mapNameFile)
+        vtmFile = vtmFile + ".vtm"
+
+
+        if not os.path.isdir("maps"):
+            os.mkdir("maps")
+        if not os.path.isdir(mapFolder):
+            os.mkdir(mapFolder)
 
         widthInDegrees = mapWidth / 111111
 
@@ -482,8 +616,11 @@ class vtolMapper:
                         ns = i + 1
                     else:
                         ns = False
+
+                    grid = getGridFromWorldPoint(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']), resolution)
+
                     segment = {"id": i, "type": 0, "bridge": False, "length": 100, "s": first, "m": mid, "e": last,
-                               'ns': ns, 'ps': ps}
+                               'ns': ns, 'ps': ps, "grid": grid}
                     highwaySegments.append(segment)
                     i += 1
             else:
@@ -494,26 +631,33 @@ class vtolMapper:
         logger.debug("Major Road Count: %s" % len(majorRoads))
         logger.debug("Total Lat/Lon Points: %s" % len(points))
 
-        prefab_id = 0
-        with open(vtmFile, 'a') as prefabFile:
-            prefabFile.write("""	StaticPrefabs
-        {\n""")
-            for airport in airports:
-                gamepos = gpsTupletoUnityWorldPoint(airport['cords'], 0, 0, airport['height'])
+        self.saveVTM(mapName, mapName, "test", mapWidth, resolution, "HeightMap", "Hills", "Boreal", mapName, airports,
+                    highwaySegments, vtmFile)
 
-                prefabFile.write("""		StaticPrefab
-        	{\n""")
-                prefabFile.write("""			prefab = airbase1\n""")
-                prefabFile.write("""			id = %s\n""" % prefab_id)
-                prefabFile.write("""			globalPos = (%s)\n""" % str(gamepos))
-                prefabFile.write("""			rotation = (0, 311.5949, 0)\n""")
-                prefabFile.write("""			grid = (0,0)\n""")
-                prefabFile.write("""			tSpacePos = (0, 0, 0)\n""")
-                prefabFile.write("""			terrainToLocalMatrix = 0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;\n""")
-                prefabFile.write("""			baseName = %s\n""" % airport['name'])
-                prefabFile.write("""		}\n""")
-                prefab_id += 1
-            prefabFile.write("""	}\n""")
+        # with open(vtmFile, 'a') as prefabFile:
+        #     prefabFile.write("""	StaticPrefabs
+        # {\n""")
+        #     prefab_id = 0
+        #     for airport in airports:
+        #         gamepos = gpsTupletoUnityWorldPoint(airport['cords'], 0, 0, airport['height'])
+        #
+        #         grid = getGridFromWorldPoint(gamepos, resolution)
+        #
+        #         print(grid)
+        #
+        #         prefabFile.write("""		StaticPrefab
+        # 	{\n""")
+        #         prefabFile.write("""			prefab = airbase1\n""")
+        #         prefabFile.write("""			id = %s\n""" % prefab_id)
+        #         prefabFile.write("""			globalPos = (%s)\n""" % str(gamepos))
+        #         prefabFile.write("""			rotation = (0, 311.5949, 0)\n""")
+        #         prefabFile.write("""			grid = (%s,%s)\n""" % (grid[0], grid[1]))
+        #         prefabFile.write("""			tSpacePos = (0, 0, 0)\n""")
+        #         prefabFile.write("""			terrainToLocalMatrix = 0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;\n""")
+        #         prefabFile.write("""			baseName = %s\n""" % airport['name'])
+        #         prefabFile.write("""		}\n""")
+        #         prefab_id += 1
+        #     prefabFile.write("""	}\n""")
         #
         # with open(vtmFile, 'a') as roadFile:
         #     roadFile.write("""	BezierRoads
@@ -556,10 +700,13 @@ class vtolMapper:
         logger.debug("Max Height: %s" % maxHeight)
 
         logger.debug("Creating Height Map")
-        self.createHeightMapFile(heights, resolution, maxHeight, minHeight, buildups, cityAdjust)
+
+        heightMapFile = os.path.join(mapFolder,"height.png")
+
+        self.createHeightMapFile(heights, resolution, maxHeight, minHeight, buildups, cityAdjust, heightMapFile)
 
 
-    def createHeightMapFile(self, heights, width, maxHeight, minHeight, buildup, cityAdjust):
+    def createHeightMapFile(self, heights, width, maxHeight, minHeight, buildup, cityAdjust, heightMapFile):
         heightDiff = maxHeight - minHeight;
         scaleFactor = 1.0
 
@@ -651,7 +798,7 @@ class vtolMapper:
         image = ImageOps.flip(image)
         image = image.transpose(Image.ROTATE_270)
 
-        image.save("height.png", "PNG")
+        image.save(heightMapFile, "PNG")
         image.show()
 
 
@@ -1025,14 +1172,16 @@ if __name__ == "__main__":
     forceRefresh = False
 
     rebuildCity = True
-    disableCityPaint = False
+    disableCityPaint = True
 
-    # centerLong = 12.495228
-    # centerLat = 41.891866
+    map_name = "Rome"
+
+    centerLong = 12.495228
+    centerLat = 41.891866
 
     # NYC
-    centerLong = -73.972005
-    centerLat = 40.773345
+    # centerLong = -73.972005
+    # centerLat = 40.773345
 
     # Meters
     mapWidth = 192000
@@ -1053,6 +1202,6 @@ if __name__ == "__main__":
 
     vtmFile = 'test.vtm'
 
-    mapper.generate(centerLong, centerLat, forceBelowZero=True, forceRefresh=False, rebuildCity=True, disableCityPaint=False, cityAdjust=50, resolution=512, offsetAmount=15, mapWidth=192000)
+    mapper.generate(centerLong, centerLat, forceBelowZero=True, forceRefresh=False, rebuildCity=True, disableCityPaint=False, cityAdjust=50, resolution=512, offsetAmount=15, mapWidth=192000, mapName = map_name)
 
 
