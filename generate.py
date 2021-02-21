@@ -281,7 +281,6 @@ class ghsDataParser:
             long1 = westLong
             long2 = eastLong
 
-            #
             # Get the distance between the left and right points, and found how many subdivisions fit in it
             hopValue = (long2 - long1) / subDivisions
             long3 = long1
@@ -380,57 +379,47 @@ class vtolMapper:
 
             grid = getGridFromWorldPoint(gamepos, mapResolution)
 
-            file_lines.append("\t\t\tStaticPrefab")
-            file_lines.append("\t\t\t{")
-            file_lines.append("\t\t\t\t prefab = airbase1")
-            file_lines.append("\t\t\t\t id = %s" % prefab_id)
-            file_lines.append("\t\t\t\t globalPos = (%s)" % str(gamepos))
-            file_lines.append("\t\t\t\t rotation = (0, 311.5949, 0)")
-            file_lines.append("\t\t\t\t grid = (%s, %s)" % (grid[0], grid[1]))
-            file_lines.append("\t\t\t\t tSpacePos = (0, 0, 0)")
-            file_lines.append("\t\t\t\t terrainToLocalMatrix = 0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;")
-            file_lines.append("\t\t\t\t baseName = %s" % airport['name'])
-            file_lines.append("\t\t\t}")
+            file_lines.append("\t\tStaticPrefab")
+            file_lines.append("\t\t{")
+            file_lines.append("\t\t\tprefab = airbase1")
+            file_lines.append("\t\t\tid = %s" % prefab_id)
+            file_lines.append("\t\t\tglobalPos = (%s)" % str(gamepos))
+            file_lines.append("\t\t\trotation = (0, 311.5949, 0)")
+            file_lines.append("\t\t\tgrid = (%s, %s)" % (grid[0], grid[1]))
+            file_lines.append("\t\t\ttSpacePos = (0, 0, 0)")
+            file_lines.append("\t\t\tterrainToLocalMatrix = 0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;1;")
+            file_lines.append("\t\t\tbaseName = %s" % airport['name'])
+            file_lines.append("\t\t}")
             prefab_id += 1
 
         file_lines.append("\t}")
+        file_lines.append("""	BezierRoads
+\t{""")
         # Roads
+        if len(roads) > 0:
+            file_lines.append("""
+            Chunk
+            {
+                grid = (0,0)""")
+            for segment in roads:
+                file_lines.append("""			Segment
+                {""")
+                file_lines.append("""				id = %s""" % segment['id'])
+                file_lines.append("""				type = %s""" % segment['type'])
+                file_lines.append("""				bridge = %s""" % segment['bridge'])
+                file_lines.append("""				length = %s""" % segment['length'])
+                file_lines.append("""				s = (%s)""" % segment['s'])
+                file_lines.append("""				m = (%s)""" % segment['m'])
+                file_lines.append("""				e = (%s)""" % segment['e'])
+                if segment['ns']:
+                    file_lines.append("""				ns = %s""" % segment['ns'])
+                if segment['ps']:
+                    file_lines.append("""				ps = %s""" % segment['ps'])
+                file_lines.append("""			}""")
 
-        # file_lines.append("\tBezierRoads")
-        # file_lines.append("\t{")
-        # file_lines.append("\t\tChunk")
-        # file_lines.append("\t\t{")
-        #
+            file_lines.append("""		}""")
 
-        # with open(vtmFile, 'a') as roadFile:
-        #     roadFile.write("""	BezierRoads
-        # {
-        # 	Chunk
-        # 	{
-        # 		grid = (0,0)\n""")
-        #     for segment in highwaySegments:
-        #         roadFile.write("""			Segment
-        # 		{\n""")
-        #         roadFile.write("""				id = %s\n""" % segment['id'])
-        #         roadFile.write("""				type = %s\n""" % segment['type'])
-        #         roadFile.write("""				bridge = %s\n""" % segment['bridge'])
-        #         roadFile.write("""				length = %s\n""" % segment['length'])
-        #
-        #         roadFile.write("""				s = (%s)\n""" % segment['s'])
-        #         roadFile.write("""				m = (%s)\n""" % segment['m'])
-        #         roadFile.write("""				e = (%s)\n""" % segment['e'])
-        #
-        #         if segment['ns']:
-        #             roadFile.write("""				ns = %s\n""" % segment['ns'])
-        #
-        #         if segment['ps']:
-        #             roadFile.write("""				ps = %s\n""" % segment['ps'])
-        #
-        #         roadFile.write("""			}\n""")
-        #
-        #     roadFile.write("""		}\n""")
-        #     roadFile.write("""	}\n""")
-
+        file_lines.append("""	}""")
         file_lines.append("}")
 
         with open(vtmFileName, 'w') as outFile:
@@ -439,7 +428,7 @@ class vtolMapper:
     def generateAirportConfig(self):
         pass
 
-    def generate(self, centerLong, centerLat, forceBelowZero = True, forceRefresh = False, rebuildCity=True, disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000, minHighwayLength=5, mapName=None):
+    def generate(self, centerLong, centerLat, forceBelowZero = True, forceRefresh = False, rebuildCity=True, disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000, minHighwayLength=5, mapName=None, generateRoads=True):
 
         if mapName == None:
             raise ValueError("Invalid or missing Map Name")
@@ -564,67 +553,67 @@ class vtolMapper:
                     c += 1
             logger.debug("number of heights below 0: %s" % c)
 
+        if generateRoads:
+            for highway in highways:
+                logger.debug("Processing %s highway" % highway)
+                points = []
+                highwayHeightData = {}
+                while len(highways[highway]) > 1:
+                    cord = highways[highway].pop()
+                    lat = float(cord['lat'])
+                    lon = float(cord['lon'])
+                    height = cord['height']
+                    points.append([lat, lon])
+                    #logger.debug("Subtracting height offset (%s) from highway height (%s) - %s" % (vtolvr_heightoffset, height, height - vtolvr_heightoffset))
+                    highwayHeightData["%s,%s" % (lat,lon)] = {"lat": lat, "lon": lon, "height": height - vtolvr_heightoffset}
 
-        for highway in highways:
-            logger.debug("Processing %s highway" % highway)
-            points = []
-            highwayHeightData = {}
-            while len(highways[highway]) > 1:
-                cord = highways[highway].pop()
-                lat = float(cord['lat'])
-                lon = float(cord['lon'])
-                height = cord['height']
-                points.append([lat, lon])
-                #logger.debug("Subtracting height offset (%s) from highway height (%s) - %s" % (vtolvr_heightoffset, height, height - vtolvr_heightoffset))
-                highwayHeightData["%s,%s" % (lat,lon)] = {"lat": lat, "lon": lon, "height": height - vtolvr_heightoffset}
-
-            #logger.debug("Sorting GPS points")
-            points = np.array(points)
-
-
-            if len(points) > 0 and len(points) > minHighwayLength:
-                sorted_order, xy_coord_sorted = find_gps_sorted(points)
-
-                first = None
-                cordList = xy_coord_sorted.tolist()
+                #logger.debug("Sorting GPS points")
+                points = np.array(points)
 
 
-                cordlist_with_height = []
-                # Once again re-aligning heights to coordinates
-                for point in cordList:
-                    cordlist_with_height.append(highwayHeightData["%s,%s" % (point[0], point[1])])
+                if len(points) > 0 and len(points) > minHighwayLength:
+                    sorted_order, xy_coord_sorted = find_gps_sorted(points)
 
-                #logger.debug("Got %s sorted points " % len(cordList))
+                    first = None
+                    cordList = xy_coord_sorted.tolist()
 
-                cordList = cordlist_with_height
 
-                while len(cordList) > 1:
+                    cordlist_with_height = []
+                    # Once again re-aligning heights to coordinates
+                    for point in cordList:
+                        cordlist_with_height.append(highwayHeightData["%s,%s" % (point[0], point[1])])
 
-                    if first == None:
+                    #logger.debug("Got %s sorted points " % len(cordList))
+
+                    cordList = cordlist_with_height
+
+                    while len(cordList) > 1:
+
+                        if first == None:
+                            each_cord = cordList.pop()
+                            first = str(gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset, each_cord['height']))
+                            ps = False
+                        else:
+                            first = highwaySegments[i - 1]['e']
+                            ps = highwaySegments[i - 1]['id']
+
                         each_cord = cordList.pop()
-                        first = str(gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset, each_cord['height']))
-                        ps = False
-                    else:
-                        first = highwaySegments[i - 1]['e']
-                        ps = highwaySegments[i - 1]['id']
+                        mid = str(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']))
 
-                    each_cord = cordList.pop()
-                    mid = str(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']))
+                        last = str(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']))
+                        if len(cordList) != 0:
+                            ns = i + 1
+                        else:
+                            ns = False
 
-                    last = str(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']))
-                    if len(cordList) != 0:
-                        ns = i + 1
-                    else:
-                        ns = False
+                        grid = getGridFromWorldPoint(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']), resolution)
 
-                    grid = getGridFromWorldPoint(gpsTupletoUnityWorldPoint((each_cord['lat'],each_cord['lon']), latOffset, longOffset, each_cord['height']), resolution)
-
-                    segment = {"id": i, "type": 0, "bridge": False, "length": 100, "s": first, "m": mid, "e": last,
-                               'ns': ns, 'ps': ps, "grid": grid}
-                    highwaySegments.append(segment)
-                    i += 1
-            else:
-                logger.warning("Highway %s has no points or highway points (%s) is below the minimum length (%s)." % (highway, len(points), minHighwayLength))
+                        segment = {"id": i, "type": 0, "bridge": False, "length": 100, "s": first, "m": mid, "e": last,
+                                   'ns': ns, 'ps': ps, "grid": grid}
+                        highwaySegments.append(segment)
+                        i += 1
+                else:
+                    logger.warning("Highway %s has no points or highway points (%s) is below the minimum length (%s)." % (highway, len(points), minHighwayLength))
 
         logger.debug("Tile Count: %s" % len(tileData))
         logger.debug("Highway Count: %s" % len(highways))
@@ -1141,7 +1130,6 @@ class vtolMapper:
             logger.warning("No highways found in tile")
             exit()
 
-
         highway_elevation_new = self.getBingTerrainDataPolyLine(highway_elevation)
 
         # Re-adding the new heights to the highway data, by aligning the lists.
@@ -1150,7 +1138,6 @@ class vtolMapper:
             for p_i, point in enumerate(highway_data[highway]):
                 highway_data[highway][p_i]['height'] = highway_elevation_new[highwayPoints]
                 highwayPoints += 1
-
 
         if len(airports) > 0:
             logger.debug("Getting airport elevation data")
@@ -1167,30 +1154,31 @@ class vtolMapper:
 
 if __name__ == "__main__":
 
-    forceBelowZero = True
-    getData = False
+    forceBelowZero = False
+    getData = True
     forceRefresh = False
 
     rebuildCity = True
-    disableCityPaint = True
+    disableCityPaint = False
+    generateRoads = True
 
-    map_name = "Rome"
+    map_name = "nevada"
 
-    centerLong = 12.495228
-    centerLat = 41.891866
+    centerLong = -115.564715
+    centerLat = 37.261492
 
     # NYC
     # centerLong = -73.972005
     # centerLat = 40.773345
 
     # Meters
-    mapWidth = 192000
+    mapWidth = 96000
 
     # Height Offset
-    offsetAmount = 15
+    offsetAmount = 0
 
     # HM Resolution
-    #subDivisions = 512
+    mapResolution = 256
 
     cityAdjust = 20
 
@@ -1200,8 +1188,6 @@ if __name__ == "__main__":
 
     mapper = vtolMapper(bingAPIKey)
 
-    vtmFile = 'test.vtm'
-
-    mapper.generate(centerLong, centerLat, forceBelowZero=True, forceRefresh=False, rebuildCity=True, disableCityPaint=False, cityAdjust=50, resolution=512, offsetAmount=15, mapWidth=192000, mapName = map_name)
+    mapper.generate(centerLong, centerLat, forceBelowZero=forceBelowZero, forceRefresh=forceRefresh, rebuildCity=rebuildCity, disableCityPaint=disableCityPaint, cityAdjust=cityAdjust, resolution=mapResolution, offsetAmount=offsetAmount, mapWidth=mapWidth, mapName=map_name, generateRoads=generateRoads)
 
 
