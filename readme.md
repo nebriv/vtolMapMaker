@@ -11,3 +11,6 @@ Idk - fill in the variables down at the bottom of the script and see if it works
 3.   Download this and put it in this folder: 
 http://cidportal.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_LDSMT_GLOBE_R2018A/GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K/V2-0/
 
+# Notes
+Much of the map tiling was directly sourced from here:
+https://github.com/tangrams/landgrab/blob/master/landgrab.py
