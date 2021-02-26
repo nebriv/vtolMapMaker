@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta charset="utf-8" />
+	<script type='text/javascript'>
+    function GetMap() {
+        var map = new Microsoft.Maps.Map('#myMap', {showMapTypeSelector: false});
+
+        map.setView({
+            mapTypeId: Microsoft.Maps.MapTypeId.aerial,
+            center: new Microsoft.Maps.Location(35.027222, -111.0225),
+            zoom: 15
+        });
+
+        Microsoft.Maps.Events.addHandler(map, 'viewchange', function (e) {
+            document.getElementById('output').innerHTML = map.getCenter();
+            document.getElementById('output2').innerHTML = map.getZoom();
+        });
+    }
+    </script>
+    <script type='text/javascript' src='http://www.bing.com/api/maps/mapcontrol?callback=GetMap&key=AtJrHepjapOBdw4bOLQeISCcBQRIYI3zpc5BUU3VhxqXmsHa8vMR4RvVdCREdHWV' async defer></script>
+</head>
+<body>
+    <div id="myMap" style="position:relative;width:600px;height:400px;"></div>
+    <div id="output"></div>
+    <div id="output2"></div>
+</body>
+</html>

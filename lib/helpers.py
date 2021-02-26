@@ -2,8 +2,9 @@ import math
 import hashlib
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-
 import logging
+import os
+import zipfile
 
 # TODO: Cleanup Code, road height, city density
 
@@ -217,3 +218,15 @@ def offsetHeights(heights, amount):
 def genHash(plaintext):
     dataHash = hashlib.sha1(plaintext.encode('utf-8')).hexdigest()
     return dataHash
+
+def zipdir(path, zip_file):
+    # ziph is zipfile handle
+
+    zipf = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
+
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
+
+    zipf.close()
+
