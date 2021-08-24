@@ -5,6 +5,7 @@ from scipy.spatial.distance import pdist, squareform
 import logging
 import os
 import zipfile
+import shutil
 
 # TODO: Cleanup Code, road height, city density
 
@@ -220,13 +221,16 @@ def genHash(plaintext):
     return dataHash
 
 def zipdir(path, zip_file):
-    # ziph is zipfile handle
 
-    zipf = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
+    shutil.make_archive(zip_file.replace(".zip", ""), "zip", path)
 
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
-
-    zipf.close()
-
+    # # ziph is zipfile handle
+    #
+    # zipf = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
+    #
+    # for root, dirs, files in os.walk(path):
+    #     for file in files:
+    #         zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
+    #
+    # zipf.close()
+    #

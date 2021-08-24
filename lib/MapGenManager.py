@@ -1,19 +1,10 @@
-import requests
-import time
-from PIL import Image, ImageOps
-import os
-import pickle
-import json
-import numpy as np
-import configparser
-import logging
 from lib.ghsDataParser import ghsDataParser
 from lib.helpers import *
 from uuid import uuid4
-import threading
-import zipfile
 from lib.MapGenSettings import GenSettings
 from lib.MapGen import MapGen
+
+
 # TODO: Cleanup Code, road height, city density
 
 logger = logging.getLogger(__name__)
@@ -25,29 +16,29 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel('DEBUG')
 
-logger.debug("Checking for config 'config.conf' file...")
-if os.path.isfile('config.conf'):
-    logger.debug("Loading config file...")
-
-    config = configparser.ConfigParser()
-    config.read('config.conf')
-else:
-    logger.error("Could not find config.conf file!")
-    raise FileNotFoundError("Could not find config.conf file!")
-
+# logger.debug("Checking for config 'config.conf' file...")
+# if os.path.isfile('config.conf'):
+#     logger.debug("Loading config file...")
+#
+#     config = configparser.ConfigParser()
+#     config.read('config.conf')
+# else:
+#     logger.error("Could not find config.conf file!")
+#     raise FileNotFoundError("Could not find config.conf file!")
 
 
 class MapGenManager:
     generation_threads = {}
 
-    def __init__(self, bingAPIKey, nextzenAPIKey):
-        self.ghsParser = ghsDataParser()
+    def __init__(self, bingAPIKey, nextzenAPIKey, outputDir, ghsFile='GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif'):
+        self.ghsParser = ghsDataParser(ghsFile)
 
         if not os.path.isdir("dataSets"):
             os.mkdir("dataSets")
 
         self.bingAPIKey = bingAPIKey
         self.nextzenAPIKey = nextzenAPIKey
+        self.outputDir = outputDir
 
     def create_map(self, **kwargs):
 
@@ -57,10 +48,7 @@ class MapGenManager:
         #              minHighwayLength=5, mapName=None, generateRoads=True, edgeType="Hills", biome="Boreal"):
         # thread = threading.Thread(target=self.mapper.generate, args=(uuid, centerLong, centerLat, forceBelowZero, forceRefresh, rebuildCity, disableCityPaint, cityAdjust, resolution, offsetAmount, mapWidth, minHighwayLength, mapName, generateRoads, biome, edgeType))
 
-        print(kwargs)
-        mapSettings = GenSettings(bingAPIKey=self.bingAPIKey, nextzenAPIKey=self.nextzenAPIKey, ghsParser=self.ghsParser, uuid=uuid, **kwargs)
-        print(mapSettings.__dict__)
-
+        mapSettings = GenSettings(bingAPIKey=self.bingAPIKey, nextzenAPIKey=self.nextzenAPIKey, outputDir=self.outputDir, ghsParser=self.ghsParser, uuid=uuid, **kwargs)
 
         map_thread = MapGen(mapSettings)
 
@@ -69,24 +57,29 @@ class MapGenManager:
 
         return uuid
 
+    def count_running_threads(self):
+        count = 0
+        for thread in self.generation_threads:
+            if self.generation_threads[thread].status != {"Status": "Done"} and "Error" not in self.generation_threads[thread].status:
+                count += 1
+        return count
+
     def get_thread_status(self, uuid):
-        return self.generation_threads[uuid].status
+        if uuid in self.generation_threads:
+            return self.generation_threads[uuid].status
+        else:
+            return False
 
     def get_zip(self, uuid):
-        map_path = os.path.join("maps", uuid)
-        if os.path.exists(map_path):
-            for file in os.listdir(map_path):
-                if file.endswith(".zip"):
-                    return os.path.join(map_path, file)
+        if uuid in self.generation_threads:
+            if self.generation_threads[uuid].status == {"Status": "Done"}:
+                return self.generation_threads[uuid].zipFile
 
         return False
 
     def get_heightmap_image(self, uuid):
-        map_path = os.path.join("maps", uuid)
-        if os.path.exists(map_path):
-            for root, dirs, files in os.walk(map_path):
-                for file in files:
-                    if file.endswith(".png"):
-                        return(os.path.join(root, file))
+        if uuid in self.generation_threads:
+            if self.generation_threads[uuid].status == {"Status": "Done"}:
+                return self.generation_threads[uuid].heightMap
 
         return False

@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     ghsFile = "GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif"
 
-    generator = MapGenManager(bingAPIKey, nextzenAPIKey)
+    generator = MapGenManager(bingAPIKey, nextzenAPIKey, ghsFile)
 
     uuid = generator.create_map(centerLong=centerLong, centerLat=centerLat, forceBelowZero=forceBelowZero, forceRefresh=forceRefresh,
                                 rebuildCity=rebuildCity, disableCityPaint=disableCityPaint, cityAdjust=cityAdjust,

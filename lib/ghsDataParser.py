@@ -21,13 +21,14 @@ outSpatialRef.SetFromUserInput('ESRI:54009')
 class ghsDataParser:
     ghsFile = False
     transformer = Transformer.from_crs("epsg:4326", "esri:54009")
-    def __init__(self, ghsFile="GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif"):
+    def __init__(self, ghsFile):
         self.ghsFile = ghsFile
         self.loadBuildupData()
 
     def loadBuildupData(self):
         logger.debug("Loading GHS-BUILT data")
         dataset = gdal.Open(self.ghsFile)
+        logger.debug("Done loading DHS data.")
 
         band = dataset.GetRasterBand(1)
 

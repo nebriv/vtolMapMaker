@@ -4,14 +4,13 @@ from PIL import Image, ImageOps
 import os
 import pickle
 import json
-import numpy as np
-import configparser
-import logging
-from lib.ghsDataParser import ghsDataParser
 from lib.helpers import *
 from uuid import uuid4
 import threading
 import zipfile
+import datetime
+import traceback
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +20,24 @@ handler.setFormatter(formatter)
 
 logger.addHandler(handler)
 logger.setLevel('DEBUG')
-
-logger.debug("Checking for config 'config.conf' file...")
-if os.path.isfile('config.conf'):
-    logger.debug("Loading config file...")
-
-    config = configparser.ConfigParser()
-    config.read('config.conf')
-else:
-    logger.error("Could not find config.conf file!")
-    raise FileNotFoundError("Could not find config.conf file!")
-
+#
+# logger.debug("Checking for config 'config.conf' file...")
+# if os.path.isfile('config.conf'):
+#     logger.debug("Loading config file...")
+#
+#     config = configparser.ConfigParser()
+#     config.read('config.conf')
+# else:
+#     logger.error("Could not find config.conf file!")
+#     raise FileNotFoundError("Could not find config.conf file!")
+#
 
 class MapGen(threading.Thread):
 
     status = "Not Started"
+    vtmData = None
+    heightMap = None
+    zipFile = None
 
     def __init__(self, genSettings):
         super().__init__()
@@ -48,242 +50,262 @@ class MapGen(threading.Thread):
         # if not ghsParser:
         #     self.ghsParser = ghsDataParser()
 
-        self.status = "Initialized"
+        self.status = {"Status": "Initialized"}
 
         self.settings = genSettings
 
     def run(self):
+        try:
+            if self.settings.mapName == None:
+                raise ValueError("Invalid or missing Map Name")
 
-        if self.settings.mapName == None:
-            raise ValueError("Invalid or missing Map Name")
+            self.run_date = datetime.datetime.now()
 
-        mapNameFile = format_filename(self.settings.mapName)
+            mapNameFile = format_filename(self.settings.mapName)
+            curDir = os.path.dirname(os.path.abspath(__file__))
 
-        uuid_folder = os.path.join("maps", self.settings.uuid)
+            uuid_folder = os.path.join(self.settings.outputDir, self.settings.uuid)
+            mapFolder = os.path.join(uuid_folder, mapNameFile)
 
-        mapFolder = os.path.join(uuid_folder, mapNameFile)
 
-        vtmFile = os.path.join(mapFolder, mapNameFile)
-        vtmFile = vtmFile + ".vtm"
+            if not os.path.isdir(self.settings.outputDir):
+                os.mkdir(self.settings.outputDir)
+            if not os.path.isdir(mapFolder):
+                os.makedirs(mapFolder)
 
-        if not os.path.isdir("maps"):
-            os.mkdir("maps")
-        if not os.path.isdir(mapFolder):
-            os.makedirs(mapFolder)
+            self.status = {"Status": "Calculating map width and resolution information"}
 
-        self.status = "Calculating map width and resolution information"
+            widthInDegrees = self.settings.mapWidth / 111111
 
-        widthInDegrees = self.settings.mapWidth / 111111
+            westLong = self.settings.centerLong - (widthInDegrees / 2)
+            northLat = self.settings.centerLat + (widthInDegrees / 2)
 
-        westLong = self.settings.centerLong - (widthInDegrees / 2)
-        northLat = self.settings.centerLat + (widthInDegrees / 2)
+            logger.debug("Top Left Corner")
+            logger.debug("%s, %s" % (northLat, westLong))
 
-        logger.debug("Top Left Corner")
-        logger.debug("%s, %s" % (northLat, westLong))
+            eastLong = westLong + widthInDegrees
+            southLat = northLat - widthInDegrees
+            logger.debug("Bottom Left Corner")
+            logger.debug("%s, %s" % (southLat, westLong))
 
-        eastLong = westLong + widthInDegrees
-        southLat = northLat - widthInDegrees
-        logger.debug("Bottom Left Corner")
-        logger.debug("%s, %s" % (southLat, westLong))
+            logger.debug("%s, %s" % (0 - southLat, 0 - westLong))
 
-        logger.debug("%s, %s" % (0 - southLat, 0 - westLong))
+            latOffset = 0 - southLat
+            longOffset = 0 - westLong
 
-        latOffset = 0 - southLat
-        longOffset = 0 - westLong
+            logger.debug("Latitude Offset: %s" % latOffset)
+            logger.debug("Longitude Offset: %s" % longOffset)
 
-        logger.debug("Latitude Offset: %s" % latOffset)
-        logger.debug("Longitude Offset: %s" % longOffset)
+            logger.debug("Bottom Right Corner")
+            logger.debug("%s, %s" % (southLat, eastLong))
 
-        logger.debug("Bottom Right Corner")
-        logger.debug("%s, %s" % (southLat, eastLong))
+            heightMapResolution = self.settings.mapWidth / self.settings.resolution
+            logger.debug("Meters per pixel: %s" % heightMapResolution)
 
-        heightMapResolution = self.settings.mapWidth / self.settings.resolution
-        logger.debug("Meters per pixel: %s" % heightMapResolution)
+            distanceBetween = (northLat - southLat) / (self.settings.resolution - 1)
 
-        distanceBetween = (northLat - southLat) / (self.settings.resolution - 1)
+            # Get points between locations
+            points = getPoints(self.settings.resolution, southLat, westLong, eastLong, distanceBetween)
 
-        # Get points between locations
-        points = getPoints(self.settings.resolution, southLat, westLong, eastLong, distanceBetween)
+            self.status = {"Status": "Collecting area roads and airports"}
+            try:
+                highways, majorRoads, tileData, airports = self.getTiles(points, 8)
+            except Exception as error:
+                self.status = {"Error": "Error collecting area roads and airports."}
+                return False
 
-        self.status = "Collecting area roads and airports"
-        highways, majorRoads, tileData, airports = self.getTiles(points, 8)
+            dataHash = self.genDataHash(self.settings.centerLong, self.settings.centerLat, self.settings.mapWidth, self.settings.resolution)
 
-        dataHash = self.genDataHash(self.settings.centerLong, self.settings.centerLat, self.settings.mapWidth)
+            i = 0
 
-        i = 0
+            highwaySegments = []
+            heightData = {}
 
-        highwaySegments = []
-        heightData = {}
+            cachedData = self.get_cached(dataHash)
 
-        cachedData = self.get_cached(dataHash)
+            if self.settings.rebuildCity:
+                self.status = {"Status": "Collecting city build information"}
 
-        if self.settings.rebuildCity:
-            self.status = "Collecting city build information"
+                buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween,
+                                                                                     westLong,
+                                                                                     eastLong)
+                logger.debug(maxBuildup)
+                logger.debug(minBuildup)
+            elif cachedData:
+                buildup_list, maxBuildup, minBuildup = cachedData['builduplist'], cachedData['maxBuildup'], cachedData[
+                    'minBuildup']
+            else:
+                self.status = {"Status": "Collecting city build information"}
+                buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween,
+                                                                                     westLong,
+                                                                                     eastLong)
+                logger.debug(maxBuildup)
+                logger.debug(minBuildup)
 
-            buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween,
-                                                                                 westLong,
-                                                                                 eastLong)
-            logger.debug(maxBuildup)
-            logger.debug(minBuildup)
-        elif cachedData:
-            buildup_list, maxBuildup, minBuildup = cachedData['builduplist'], cachedData['maxBuildup'], cachedData[
-                'minBuildup']
-        else:
-            self.status = "Collecting city build information"
-            buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween,
-                                                                                 westLong,
-                                                                                 eastLong)
-            logger.debug(maxBuildup)
-            logger.debug(minBuildup)
+            if cachedData and not self.settings.forceRefresh:
+                heights, minHeight, maxHeight = cachedData['heights'], cachedData['minHeight'], cachedData['maxHeight']
+            else:
+                self.status = {"Status": "Collecting height map data."}
 
-        if cachedData and not self.settings.forceRefresh:
-            heights, minHeight, maxHeight = cachedData['heights'], cachedData['minHeight'], cachedData['maxHeight']
-        else:
-            self.status = "Collecting height map data."
-            heights, minHeight, maxHeight = self.getBingTerrainData(self.settings.resolution, southLat, distanceBetween, westLong,
-                                                                    eastLong)
+                heights, minHeight, maxHeight = self.getBingTerrainData(self.settings.resolution, southLat, distanceBetween, westLong,
+                                                                        eastLong)
 
-        logger.debug(len(buildup_list))
-        logger.debug(len(heights))
+            logger.debug(len(buildup_list))
+            logger.debug(len(heights))
 
-        heightData = {"heights": heights, "minHeight": minHeight, "maxHeight": maxHeight,
-                      "builduplist": buildup_list,
-                      "minBuildup": minBuildup, "maxBuildup": maxBuildup, 'centerLat': self.settings.centerLat,
-                      'centerLong': self.settings.centerLong, 'mapWidth': self.settings.mapWidth}
+            heightData = {"heights": heights, "minHeight": minHeight, "maxHeight": maxHeight,
+                          "builduplist": buildup_list,
+                          "minBuildup": minBuildup, "maxBuildup": maxBuildup, 'centerLat': self.settings.centerLat,
+                          'centerLong': self.settings.centerLong, 'mapWidth': self.settings.mapWidth}
 
-        pickle.dump(heightData, open(os.path.join("dataSets", "%s.p" % dataHash), "wb"))
+            pickle.dump(heightData, open(os.path.join("dataSets", "%s.p" % dataHash), "wb"))
 
-        heights = heightData['heights']
-        minHeight = heightData['minHeight']
-        maxHeight = heightData['maxHeight']
+            heights = heightData['heights']
+            minHeight = heightData['minHeight']
+            maxHeight = heightData['maxHeight']
 
-        logger.debug("Min Height: %s" % minHeight)
-        logger.debug("Max Height: %s" % maxHeight)
+            logger.debug("Min Height: %s" % minHeight)
+            logger.debug("Max Height: %s" % maxHeight)
 
-        vtolvr_heightoffset = 0
+            vtolvr_heightoffset = 0
 
-        if self.settings.forceBelowZero:
-            self.status = "Running height map offset calculations"
-            vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
-            logger.debug("Height Adjustment: %s" % vtolvr_heightoffset)
+            if self.settings.forceBelowZero:
+                self.status = {"Status": "Running height map offset calculations"}
+                vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
+                logger.debug("Height Adjustment: %s" % vtolvr_heightoffset)
 
-            logger.debug(heights[0:10])
+                logger.debug(heights[0:10])
 
-            c = 0
-            for height in heights:
-                if height < 0:
-                    c += 1
-            logger.debug("number of heights below 0: %s" % c)
-            heights = offsetHeights(heights, vtolvr_heightoffset)
+                c = 0
+                for height in heights:
+                    if height < 0:
+                        c += 1
+                logger.debug("number of heights below 0: %s" % c)
+                heights = offsetHeights(heights, vtolvr_heightoffset)
 
-            c = 0
-            for height in heights:
-                if height < 0:
-                    c += 1
-            logger.debug("number of heights below 0: %s" % c)
+                c = 0
+                for height in heights:
+                    if height < 0:
+                        c += 1
+                logger.debug("number of heights below 0: %s" % c)
 
-        if self.settings.generateRoads:
-            self.status = "Calculating highway elevations"
-            for highway in highways:
-                logger.debug("Processing %s highway" % highway)
-                points = []
-                highwayHeightData = {}
-                while len(highways[highway]) > 1:
-                    cord = highways[highway].pop()
-                    lat = float(cord['lat'])
-                    lon = float(cord['lon'])
-                    height = cord['height']
-                    points.append([lat, lon])
-                    # logger.debug("Subtracting height offset (%s) from highway height (%s) - %s" % (vtolvr_heightoffset, height, height - vtolvr_heightoffset))
-                    highwayHeightData["%s,%s" % (lat, lon)] = {"lat": lat, "lon": lon,
-                                                               "height": height - vtolvr_heightoffset}
+            if self.settings.generateRoads:
+                self.status = {"Status": "Calculating highway elevations"}
+                for highway in highways:
+                    logger.debug("Processing %s highway" % highway)
+                    points = []
+                    highwayHeightData = {}
+                    while len(highways[highway]) > 1:
+                        cord = highways[highway].pop()
+                        lat = float(cord['lat'])
+                        lon = float(cord['lon'])
+                        height = cord['height']
+                        points.append([lat, lon])
+                        # logger.debug("Subtracting height offset (%s) from highway height (%s) - %s" % (vtolvr_heightoffset, height, height - vtolvr_heightoffset))
+                        highwayHeightData["%s,%s" % (lat, lon)] = {"lat": lat, "lon": lon,
+                                                                   "height": height - vtolvr_heightoffset}
 
-                # logger.debug("Sorting GPS points")
-                points = np.array(points)
+                    # logger.debug("Sorting GPS points")
+                    points = np.array(points)
 
-                if len(points) > 0 and len(points) > self.settings.minHighwayLength:
-                    sorted_order, xy_coord_sorted = find_gps_sorted(points)
+                    if len(points) > 0 and len(points) > self.settings.minHighwayLength:
+                        sorted_order, xy_coord_sorted = find_gps_sorted(points)
 
-                    first = None
-                    cordList = xy_coord_sorted.tolist()
+                        first = None
+                        cordList = xy_coord_sorted.tolist()
 
-                    cordlist_with_height = []
-                    # Once again re-aligning heights to coordinates
-                    for point in cordList:
-                        cordlist_with_height.append(highwayHeightData["%s,%s" % (point[0], point[1])])
+                        cordlist_with_height = []
+                        # Once again re-aligning heights to coordinates
+                        for point in cordList:
+                            cordlist_with_height.append(highwayHeightData["%s,%s" % (point[0], point[1])])
 
-                    # logger.debug("Got %s sorted points " % len(cordList))
+                        # logger.debug("Got %s sorted points " % len(cordList))
 
-                    cordList = cordlist_with_height
+                        cordList = cordlist_with_height
 
-                    while len(cordList) > 1:
+                        while len(cordList) > 1:
 
-                        if first == None:
+                            if first == None:
+                                each_cord = cordList.pop()
+                                first = str(
+                                    gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
+                                                              each_cord['height']))
+                                ps = False
+                            else:
+                                first = highwaySegments[i - 1]['e']
+                                ps = highwaySegments[i - 1]['id']
+
                             each_cord = cordList.pop()
-                            first = str(
+                            mid = str(gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
+                                                                each_cord['height']))
+
+                            last = str(
                                 gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
                                                           each_cord['height']))
-                            ps = False
-                        else:
-                            first = highwaySegments[i - 1]['e']
-                            ps = highwaySegments[i - 1]['id']
+                            if len(cordList) != 0:
+                                ns = i + 1
+                            else:
+                                ns = False
 
-                        each_cord = cordList.pop()
-                        mid = str(gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
-                                                            each_cord['height']))
+                            grid = getGridFromWorldPoint(
+                                gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
+                                                          each_cord['height']), self.settings.resolution)
 
-                        last = str(
-                            gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
-                                                      each_cord['height']))
-                        if len(cordList) != 0:
-                            ns = i + 1
-                        else:
-                            ns = False
-
-                        grid = getGridFromWorldPoint(
-                            gpsTupletoUnityWorldPoint((each_cord['lat'], each_cord['lon']), latOffset, longOffset,
-                                                      each_cord['height']), self.settings.resolution)
-
-                        segment = {"id": i, "type": 0, "bridge": False, "length": 100, "s": first, "m": mid, "e": last,
-                                   'ns': ns, 'ps': ps, "grid": grid}
-                        highwaySegments.append(segment)
-                        i += 1
-                else:
-                    logger.warning(
-                        "Highway %s has no points or highway points (%s) is below the minimum length (%s)." % (
-                            highway, len(points), self.settings.minHighwayLength))
+                            segment = {"id": i, "type": 0, "bridge": False, "length": 100, "s": first, "m": mid, "e": last,
+                                       'ns': ns, 'ps': ps, "grid": grid}
+                            highwaySegments.append(segment)
+                            i += 1
+                    else:
+                        logger.warning(
+                            "Highway %s has no points or highway points (%s) is below the minimum length (%s)." % (
+                                highway, len(points), self.settings.minHighwayLength))
 
 
-        logger.debug("Tile Count: %s" % len(tileData))
-        logger.debug("Highway Count: %s" % len(highways))
-        logger.debug("Major Road Count: %s" % len(majorRoads))
-        logger.debug("Total Lat/Lon Points: %s" % len(points))
-        self.status = "Saving VTM file"
-        self.saveVTM(self.settings.mapName, self.settings.mapName, "test", self.settings.mapWidth, self.settings.resolution, "HeightMap", self.settings.edgeType, self.settings.biome, self.settings.mapName, airports,
-                     highwaySegments, vtmFile)
+            logger.debug("Tile Count: %s" % len(tileData))
+            logger.debug("Highway Count: %s" % len(highways))
+            logger.debug("Major Road Count: %s" % len(majorRoads))
+            logger.debug("Total Lat/Lon Points: %s" % len(points))
+            self.status = {"Status": "Creating VTM data"}
+            self.vtmData = self.createVTM(self.settings.mapName, self.settings.mapName, "test", self.settings.mapWidth, self.settings.resolution, "HeightMap", self.settings.edgeType, self.settings.biome, self.settings.mapName, airports,
+                         highwaySegments)
 
-        minHeight = -80
-        maxHeight = 4000
+            vtmFile = os.path.join(mapFolder, mapNameFile)
+            vtmFile = vtmFile + ".vtm"
 
-        buildups = heightData['builduplist']
+            # vtmFile = tempfile.TemporaryFile()
+            # vtmFile.writeLines(self.vtmData)
 
-        logger.debug("Got %s heights" % len(heights))
+            logger.debug("Creating VTM File: %s" % vtmFile)
 
-        logger.debug("Min Height: %s" % minHeight)
-        logger.debug("Max Height: %s" % maxHeight)
+            with open(vtmFile, 'w') as outFile:
+                outFile.writelines(s + '\n' for s in self.vtmData)
 
-        logger.debug("Creating Height Map")
+            minHeight = -80
+            maxHeight = 4000
 
-        heightMapFile = os.path.join(mapFolder, "height.png")
-        self.status = "Saving height map file"
-        self.createHeightMapFile(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust, heightMapFile)
+            buildups = heightData['builduplist']
 
-        self.status = "Creating zip"
+            logger.debug("Got %s heights" % len(heights))
 
-        zip_file = os.path.join(uuid_folder, "%s.zip" % self.settings.mapName)
-        zipdir(mapFolder, zip_file)
+            logger.debug("Min Height: %s" % minHeight)
+            logger.debug("Max Height: %s" % maxHeight)
 
-        self.status = "Done"
+            heightMapFile = os.path.join(mapFolder, "height.png")
+            logger.debug("Creating Height Map: %s" % heightMapFile)
+            self.status = {"Status": "Creating height map"}
+
+            self.heightMap = self.createHeightMapFile(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust)
+            self.heightMap.save(heightMapFile)
+
+            self.status = {"Status": "Creating zip"}
+            self.zipFile = os.path.join(uuid_folder, "%s.zip" % self.settings.mapName)
+            zipdir(mapFolder, self.zipFile)
+
+            self.status = {"Status": "Done"}
+        except Exception as error:
+            self.status = {"Error": "An unknown error occurred while processing."}
+            logger.error("Error processing %s: %s" % (self.settings.uuid, error))
+            traceback.print_exc()
 
     def get_cached(self, dataHash):
         getData = False
@@ -305,12 +327,12 @@ class MapGen(threading.Thread):
 
         return heightData
 
-    def genDataHash(self, centerLong, centerLat, mapWidth):
-        dataHashString = "%s,%s,%s" % (round(centerLong, 2), round(centerLat, 2), mapWidth)
+    def genDataHash(self, centerLong, centerLat, mapWidth, resolution):
+        dataHashString = "%s,%s,%s,%s" % (round(centerLong, 2), round(centerLat, 2), mapWidth, resolution)
         return genHash(dataHashString)
 
-    def saveVTM(self, mapID, mapName, mapDescription, mapSize, mapResolution, mapType, edgeMode, biome, seed, airports,
-                roads, vtmFileName):
+    def createVTM(self, mapID, mapName, mapDescription, mapSize, mapResolution, mapType, edgeMode, biome, seed, airports,
+                roads):
         file_lines = []
 
         file_lines.append("VTMapCustom")
@@ -353,42 +375,45 @@ class MapGen(threading.Thread):
             prefab_id += 1
 
         file_lines.append("\t}")
-        file_lines.append("""	BezierRoads
-\t{""")
+        file_lines.append("\tBezierRoads")
+        file_lines.append("\t{")
+
         # Roads
         if len(roads) > 0:
-            file_lines.append("""
-            Chunk
-            {
-                grid = (0,0)""")
+            file_lines.append("\t\tChunk")
+            file_lines.append("\t\t{")
+            file_lines.append("\t\t\tgrid = (0,0)")
             for segment in roads:
-                file_lines.append("""			Segment
-                {""")
-                file_lines.append("""				id = %s""" % segment['id'])
-                file_lines.append("""				type = %s""" % segment['type'])
-                file_lines.append("""				bridge = %s""" % segment['bridge'])
-                file_lines.append("""				length = %s""" % segment['length'])
-                file_lines.append("""				s = (%s)""" % segment['s'])
-                file_lines.append("""				m = (%s)""" % segment['m'])
-                file_lines.append("""				e = (%s)""" % segment['e'])
+                file_lines.append("\t\t\tSegment")
+                file_lines.append("\t\t\t{")
+                file_lines.append("\t\t\t\tid = %s" % segment['id'])
+                file_lines.append("\t\t\t\ttype = %s" % segment['type'])
+                file_lines.append("\t\t\t\tbridge = %s" % segment['bridge'])
+                file_lines.append("\t\t\t\tlength = %s" % segment['length'])
+                file_lines.append("\t\t\t\ts = (%s)" % segment['s'])
+                file_lines.append("\t\t\t\tm = (%s)" % segment['m'])
+                file_lines.append("\t\t\t\te = (%s)" % segment['e'])
                 if segment['ns']:
-                    file_lines.append("""				ns = %s""" % segment['ns'])
+                    file_lines.append("\t\t\t\tns = %s" % segment['ns'])
                 if segment['ps']:
-                    file_lines.append("""				ps = %s""" % segment['ps'])
-                file_lines.append("""			}""")
+                    file_lines.append("\t\t\t\tps = %s" % segment['ps'])
+                file_lines.append("\t\t\t}")
 
-            file_lines.append("""		}""")
+            file_lines.append("\t\t}")
 
-        file_lines.append("""	}""")
+        file_lines.append("\t}")
         file_lines.append("}")
 
-        with open(vtmFileName, 'w') as outFile:
-            outFile.writelines(s + '\n' for s in file_lines)
+
+
+        return file_lines
+        # with open(vtmFileName, 'w') as outFile:
+        #     outFile.writelines(s + '\n' for s in file_lines)
 
     def generateAirportConfig(self):
         pass
 
-    def createHeightMapFile(self, heights, width, maxHeight, minHeight, buildup, cityAdjust, heightMapFile):
+    def createHeightMapFile(self, heights, width, maxHeight, minHeight, buildup, cityAdjust):
         heightDiff = maxHeight - minHeight;
         scaleFactor = 1.0
 
@@ -476,8 +501,9 @@ class MapGen(threading.Thread):
         image = ImageOps.flip(image)
         image = image.transpose(Image.ROTATE_270)
 
-        image.save(heightMapFile, "PNG")
+        # image.save(heightMapFile, "PNG")
         # image.show()
+        return image
 
     def getBingTerrainDataPointList(self, points, resolution=30):
         # List of tuples containing GPS points in (lat,lon) format
@@ -505,6 +531,7 @@ class MapGen(threading.Thread):
         # url = requestUrlTemplate.format(point_string, resolution, self.bingAPIKey)
 
         response = requests.post(url, data=postData, headers=headers)
+        print(url)
         try:
             if "resourceSets" in response.json():
                 if 'resources' in response.json()['resourceSets'][0]:
@@ -518,10 +545,13 @@ class MapGen(threading.Thread):
             logger.error(response.text)
 
         if len(heights) == 0:
-            self.status = "Error: No elevations returned by Bing Terrain List"
+            self.status = {"Error": "No elevations returned by Bing Terrain List"}
             raise ValueError("No elevations returned by Bing Terrain List")
 
         return heights
+
+    def getBingTerrainDataBoundingBox(self, subDivisions, southLat, distanceBetween, westLong, eastLong):
+        pass
 
     def getBingTerrainData(self, subDivisions, southLat, distanceBetween, westLong, eastLong):
         # TODO: Rewrite this to use bounding box.
@@ -778,8 +808,10 @@ class MapGen(threading.Thread):
         if len(highway_elevation) == 0:
             logger.warning("No highway elevations found in tile")
             highway_data = None
-
-        highway_elevation_new = self.getBingTerrainDataPointList(highway_elevation)
+        try:
+            highway_elevation_new = self.getBingTerrainDataPointList(highway_elevation)
+        except ValueError as err:
+            raise ValueError("Error getting terrain data.")
 
         # Re-adding the new heights to the highway data, by aligning the lists.
         highwayPoints = 0

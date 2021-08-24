@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+
+{% block header %}
+  <h1>{% block title %}VTOL VR Map Generator{% endblock %}</h1>
+{% endblock %}
+
+{% block styles %}
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+       integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+       crossorigin=""/>
+    <style>
+        #mapid { height: 180px; }
+                .slidecontainer {
+          width: 100%; /* Width of the outside container */
+        }
+
+        /* The slider itself */
+        .slider {
+          -webkit-appearance: none;  /* Override default CSS styles */
+          appearance: none;
+          width: 100%; /* Full-width */
+          height: 25px; /* Specified height */
+          background: #d3d3d3; /* Grey background */
+          outline: none; /* Remove outline */
+          opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+          -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+          transition: opacity .2s;
+        }
+
+        /* Mouse-over effects */
+        .slider:hover {
+          opacity: 1; /* Fully shown on mouse-over */
+        }
+
+        /* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */
+        .slider::-webkit-slider-thumb {
+          -webkit-appearance: none; /* Override default look */
+          appearance: none;
+          width: 25px; /* Set a specific slider handle width */
+          height: 25px; /* Slider handle height */
+          background: #04AA6D; /* Green background */
+          cursor: pointer; /* Cursor on hover */
+        }
+
+        .slider::-moz-range-thumb {
+          width: 25px; /* Set a specific slider handle width */
+          height: 25px; /* Slider handle height */
+          background: #04AA6D; /* Green background */
+          cursor: pointer; /* Cursor on hover */
+        }
+        /* Start by setting display:none to make this hidden.
+           Then we position it in relation to the viewport window
+           with position:fixed. Width, height, top and left speak
+           for themselves. Background we set to 80% white with
+           our animation centered, and no-repeating */
+        .modal {
+            display:    none;
+            position:   fixed;
+            z-index:    1000;
+            top:        0;
+            left:       0;
+            height:     100%;
+            width:      100%;
+            background: rgba( 255, 255, 255, .8 )
+                        url('http://i.stack.imgur.com/FhHRx.gif')
+                        50% 50%
+                        no-repeat;
+        }
+
+        /* When the body has the loading class, we turn
+           the scrollbar off with overflow:hidden */
+        body.loading .modal {
+            overflow: hidden;
+        }
+
+        /* Anytime the body has the loading class, our
+           modal element will be visible */
+        body.loading .modal {
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div id="generator">
+    <div id="data" style="width: 600px; height: 400px;">
+    <form id="mapGenerator">
+        <div class="locationContainer">
+            <label>Map Name: </label>
+          <input type="text" id="name" placeholder="Map Name" name="mapName">
+       </div>
+        <div class="zoomContainer">
+            <label>Zoom Level (VTOL Map Size = <span id="vtolmapsize">64</span>): <span id="zoomValue">8</span></label><input type="range" min="8" max="12" value="8" class="slider" id="zoomSlider" name="zoomValue">
+        </div>
+        <div class="locationContainer">
+            <label>Map Center: </label>
+          <input id="latitudeValue" value="Latitude" name="latitudeValue" placeholder="Latitude">
+          <input id="longitudeValue" value="Longitude" name="longitudeValue" placeholder="Longitude">
+            <input type="button" value="My Location" id="mylocation">
+       </div>
+        <div class="forceBelowZero">
+            <label>Force below zero (Forces more water into vtol map): </label>
+            <input type="checkbox" id="forceBelowZero" name="forceBelowZero">
+        </div>
+        <div class="disableCityPaint">
+            <label>Disable City Paint: </label>
+            <input type="checkbox" id="disableCityPaint" name="disableCityPaint">
+        </div>
+        <div class="cityAdjust" id="cityAdjustContainer">
+            <label>City Offset: <span id="cityAdjustValue">10</span></label>
+            <input type="range" id="cityAdjust" min="1" max="50" value="10" class="slider" name="cityAdjust">
+        </div>
+        <div class="generateRoads">
+            <label>Generate Roads: </label>
+            <input type="checkbox" id="generateRoads" checked name="generateRoads">
+        </div>
+        <div class="minHighwayLength" id="minHighwayLengthContainer">
+            <label>Minimum Highway Length: <span id="minimumHighwayLengthValue">5</span></label>
+            <input type="range" id="minimumHighwayLength" min="1" max="20" value="5" class="slider" name="minHighwayLength">
+        </div>
+        <div class="offsetAmount">
+            <label>Heightmap Offset <span id="offsetAmountSliderValue">15</span></label>
+               <input type="range" id="offsetAmountSlider" min="0" max="100" value="15" class="slider" name="offsetAmount">
+        </div>
+<!--        <div class="mapWidth">-->
+<!--            <label>Map Size: <span id="mapWidthSliderValue">64</span></label>-->
+<!--            <input type="range" id="mapWidthSlider" min="8" max="64" value="64" class="slider" name="mapWidth">-->
+<!--        </div>-->
+        <div class="resolution">
+            <label>Map Resolution</label>
+               <select id="mapResolution" name="mapResolution">
+                   <option value="512">512</option>
+                   <option value="256">256</option>
+                   <option value="128">128</option>
+                   <option value="64">64</option>
+            </select>
+        </div>
+        <div class="edgeType">
+            <label>Edge Type</label>
+               <select id="edgeType" name="edgeType">
+                  <option value="Hills">Hills</option>
+            </select>
+        </div>
+        <div class="biome">
+            <label>Biome Type</label>
+               <select id="biome" name="biome">
+                  <option value="Boreal">Boreal</option>
+            </select>
+        </div>
+        <button type="submit" form="mapGenerator" value="Submit">Submit</button>
+    </form>
+
+</div>
+<div id="mapid" style="width: 600px; height: 400px;"></div>
+
+</div>
+<div id="results" style="display: none">
+    <div id="resultsData">
+        <label>Current Status: <span id="currentStatus">N/A</span></label>
+    </div>
+    <div id="imagename">
+    </div>
+    <div id="download" style="display: none">
+        <input type="button" id="downloadButton" value="Download">
+    </div>
+</div>
+
+<div class="modal"><!-- Place at bottom of page --></div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+ <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+
+<!--<script src="{{ url_for('static', filename='js/main.js') }}"-->
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script>
+    var uuid = false;
+    var done = false;
+
+    function showImage(uuid){
+            var val = document.getElementById('imagename').value, src = '/api/maps/' +uuid+'/getImage', img = document.createElement('img');
+            img.src = src;
+            document.body.appendChild(img);
+    }
+
+    function downloadMap(uuid){
+        window.open("/api/maps/" + uuid + "/getZip");
+    }
+
+    const downloadButton = document.getElementById("downloadButton");
+
+    // ...and take over its submit event.
+    downloadButton.addEventListener("click", function ( event ) {
+        event.preventDefault();
+        downloadMap(uuid);
+    } );
+    function getStatus(){
+        document.getElementById("generator").style.display = "none";
+        document.getElementById("results").style.display = "block";
+        const XHR = new XMLHttpRequest();
+        XHR.responseType = "json";
+
+        // Define what happens on successful data submission
+        XHR.addEventListener( "load", function(event) {
+            status = event.target.response.Status;
+            if (status !== "Done") {
+                console.log("Current Status: "  + status)
+                document.getElementById("currentStatus").innerText = status
+                setTimeout(getStatus, 1000);
+            } else{
+                console.log("Done!!")
+                document.getElementById("currentStatus").innerText = "Completed!"
+                showImage(uuid);
+                document.getElementById("download").style.display = 'block'
+            }
+
+        } );
+        // Define what happens in case of error
+        XHR.addEventListener( "error", function( event ) {
+          alert( 'Oops! Something went wrong.' );
+        } );
+        // Set up our request
+        XHR.open( "GET", "/api/maps/" + uuid + "/status" );
+        XHR.setRequestHeader("Content-Type", "application/json");
+
+        // The data sent is what the user provided in the form
+        XHR.send();
+    }
+
+    window.addEventListener( "load", function () {
+  function sendData() {
+
+    const XHR = new XMLHttpRequest();
+    XHR.responseType = "json";
+
+    // Bind the FormData object and the form element
+    const FD = new FormData( form );
+    // FD.forEach((value, key) => object[key] = value);
+    var jsonData = JSON.stringify(Object.fromEntries(FD));
+    // Define what happens on successful data submission
+    XHR.addEventListener( "load", function(event) {
+        response = event.target.response;
+        if (response.errors === false) {
+            uuid = response.uuid;
+            setTimeout(getStatus, 100);
+        } else{
+            errordata = "";
+            console.log()
+
+            for (var i = 0; i < response.validationErrors.length; i++) {
+                for (const [key, value] of Object.entries(response.validationErrors[i])){
+                    errordata += key + " - " + value + "\n";
+                }
+            }
+
+            alert(errordata);
+        }
+
+    } );
+
+    // Define what happens in case of error
+    XHR.addEventListener( "error", function( event ) {
+      alert( 'Oops! Something went wrong.' );
+    } );
+    // Set up our request
+    XHR.open( "POST", "/api/maps/createMap" );
+    XHR.setRequestHeader("Content-Type", "application/json");
+
+    // The data sent is what the user provided in the form
+    XHR.send( jsonData );
+
+  }
+
+  // Access the form element...
+  const form = document.getElementById( "mapGenerator" );
+
+  // ...and take over its submit event.
+  form.addEventListener( "submit", function ( event ) {
+    event.preventDefault();
+    sendData();
+  } );
+} );
+</script>
+
+<script>
+
+    var zoomMapping = {8: 64,
+                9: 32,
+                10: 16,
+                11: 13,
+                12: 8}
+    var zoomSlider = document.getElementById("zoomSlider");
+    var zoomValue = document.getElementById("zoomValue");
+    var vtolmapsize = document.getElementById("vtolmapsize");
+    zoomSlider.oninput = function() {
+      mymap.setZoom(this.value);
+      vtolmapsize.innerHTML = zoomMapping[this.value];
+    }
+
+    var citySlider = document.getElementById("cityAdjust");
+    var cityValue = document.getElementById("cityAdjustValue");
+    citySlider.oninput = function() {
+      cityValue.innerHTML = this.value;
+    }
+    var highwaySlider = document.getElementById("minimumHighwayLength");
+    var minimumHighwayLengthValue = document.getElementById("minimumHighwayLengthValue");
+    highwaySlider.oninput = function() {
+      minimumHighwayLengthValue.innerHTML = this.value;
+    }
+
+
+
+    document.getElementById("disableCityPaint").addEventListener('change', (event) => {
+      if (event.currentTarget.checked) {
+        document.getElementById("cityAdjustContainer").style.display = "none";
+      } else {
+        document.getElementById("cityAdjustContainer").style.display = "block";
+      }
+    })
+
+    document.getElementById("generateRoads").addEventListener('change', (event) => {
+      if (event.currentTarget.checked) {
+        document.getElementById("minHighwayLengthContainer").style.display = "block";
+      } else {
+        document.getElementById("minHighwayLengthContainer").style.display = "none";
+      }
+    })
+
+    document.getElementById("latitudeValue").addEventListener('change', (event) => {
+      if (event.currentTarget.checked) {
+        document.getElementById("minHighwayLengthContainer").style.display = "block";
+      } else {
+        document.getElementById("minHighwayLengthContainer").style.display = "none";
+      }
+    })
+    document.getElementById("longitudeValue").addEventListener('change', (event) => {
+        position = {"coords": {"longitude": document.getElementById("longitudeValue").value,
+                "latitude": document.getElementById("latitudeValue").value}}
+        console.log(position);
+        setPosition(position)
+    })
+    document.getElementById("latitudeValue").addEventListener('change', (event) => {
+        position = {"coords": {"longitude": document.getElementById("longitudeValue").value,
+                "latitude": document.getElementById("latitudeValue").value}}
+        console.log(position);
+        setPosition(position)
+    })
+    // var mapWidthSlider = document.getElementById("mapWidthSlider");
+    // var mapWidthSliderValue = document.getElementById("mapWidthSliderValue");
+    // mapWidthSlider.oninput = function() {
+    //   mapWidthSliderValue.innerHTML = this.value;
+    // }
+
+    var offsetAmountSlider = document.getElementById("offsetAmountSlider");
+    var offsetAmountSliderValue = document.getElementById("offsetAmountSliderValue");
+    offsetAmountSlider.oninput = function() {
+      offsetAmountSliderValue.innerHTML = this.value;
+    }
+
+    var latitudeValue = document.getElementById("latitudeValue");
+    var longitudeValue = document.getElementById("longitudeValue");
+
+
+    longitude = 0.0;
+    latitude = 0.0;
+    zoomLevel = 8;
+    console.log("Starting")
+	mymap = L.map('mapid').setView([longitude, latitude], zoomLevel);
+
+    var popup = L.popup();
+
+
+    function onMapClick(e) {
+        popup
+            .setLatLng(e.latlng)
+            .setContent("Map Center")
+            .openOn(mymap);
+
+        latitudeValue.value = e.latlng.lat;
+        longitudeValue.value = e.latlng.lng;
+    }
+
+    function onZoom(e) {
+        zoomValue.innerHTML = mymap.getZoom();
+        zoomSlider.value = mymap.getZoom();
+        vtolmapsize.innerHTML = zoomMapping[mymap.getZoom()];
+    }
+
+    function onMapMove(e){
+        console.log(mymap.getCenter());
+        latitudeValue.value = mymap.getCenter().lat;
+        longitudeValue.value = mymap.getCenter().lng;
+    }
+
+    function setPosition(position) {
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+      mymap.setView([latitude, longitude], zoomLevel)
+    }
+
+
+    const getlocation = document.getElementById("mylocation");
+
+    // ...and take over its submit event.
+    getlocation.addEventListener("click", function ( event ) {
+        event.preventDefault();
+        navigator.geolocation.getCurrentPosition(setPosition);
+    } );
+
+
+	L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+		maxZoom: 12,
+        minZoom: 8,
+		attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+			'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+		id: 'mapbox/streets-v11',
+		tileSize: 512,
+		zoomOffset: -1
+	}).addTo(mymap);
+
+	mymap.on('click', onMapClick);
+	mymap.on('zoomend', onZoom);
+	mymap.on('moveend', onMapMove);
+
+</script>
+
+{% endblock %}

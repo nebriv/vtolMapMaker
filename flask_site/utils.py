@@ -1,27 +1,47 @@
 from uuid import UUID
+from io import BytesIO,StringIO
+from flask import send_file
 
-def validate_uuid4(uuid_string):
+from tempfile import NamedTemporaryFile
+from shutil import copyfileobj
+from os import remove
+import string
 
+
+def validate_uuid4(uuid_to_test, version=4):
     """
-    Validate that a UUID string is in
-    fact a valid uuid4.
-    Happily, the uuid module does the actual
-    checking for us.
-    It is vital that the 'version' kwarg be passed
-    to the UUID() call, otherwise any 32-character
-    hex string is considered valid.
+    Check if uuid_to_test is a valid UUID.
+
+     Parameters
+    ----------
+    uuid_to_test : str
+    version : {1, 2, 3, 4}
+
+     Returns
+    -------
+    `True` if uuid_to_test is a valid UUID, otherwise `False`.
+
+     Examples
+    --------
+    >>> is_valid_uuid('c9bf9e57-1685-4c89-bafb-ff5af830be8a')
+    True
+    >>> is_valid_uuid('c9bf9e58')
+    False
     """
 
     try:
-        val = UUID(uuid_string, version=4)
+        uuid_obj = UUID(uuid_to_test, version=version)
     except ValueError:
-        # If it's a value error, then the string
-        # is not a valid hex code for a UUID.
         return False
+    return str(uuid_obj) == uuid_to_test
 
-    # If the uuid_string is a valid hex code,
-    # but an invalid uuid4,
-    # the UUID.__init__ will convert it to a
-    # valid uuid4. This is bad for validation purposes.
 
-    return val.hex == uuid_string
+def serve_pil_image(pil_img):
+    img_io = BytesIO()
+    pil_img.save(img_io, 'PNG', quality=100)
+    img_io.seek(0)
+    return send_file(img_io, mimetype='image/png')
+
+def checkMapName(test_str):
+    allowed = set(string.ascii_lowercase + string.digits + '_' + string.ascii_uppercase)
+    return set(test_str) <= allowed

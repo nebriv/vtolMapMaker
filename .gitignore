@@ -3,11 +3,14 @@
 dataSets/
 tiles/
 venv/
+venv2/
 config.conf
 *.vtm
 height.png
-config.conf
 *.pyc
 *.tif
 *.zip
 *.png
+.flaskenv
+.env
+requirements_old.txt

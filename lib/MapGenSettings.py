@@ -1,6 +1,13 @@
+class ValidSettings:
+    biomes = ['Boreal', "Desert", "Artic"]
+    edgeType = ['Hills', "Water"]
+    mapWidth = ['192000']
+
+
 class GenSettings:
     bingKey = None
     nextzenAPIKey = None
+    outputDir = ''
     ghsParser = None
     uuid = None
     centerLong = None
@@ -19,13 +26,13 @@ class GenSettings:
     edgeType = "Hills"
     biome = "Boreal"
 
-    def __init__(self, bingAPIKey=None, nextzenAPIKey=None, ghsParser=None, uuid=None, centerLong=0, centerLat=0, forceBelowZero=True, forceRefresh=False, rebuildCity=True,
+    def __init__(self, bingAPIKey=None, nextzenAPIKey=None, outputDir=None, ghsParser=None, uuid=None, centerLong=0, centerLat=0, forceBelowZero=True, forceRefresh=False, rebuildCity=True,
                  disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000,
                  minHighwayLength=5, mapName=None, generateRoads=True, edgeType="Hills", biome="Boreal"):
 
-        print(uuid)
         self.bingAPIKey = bingAPIKey
         self.nextzenAPIKey = nextzenAPIKey
+        self.outputDir = outputDir
         self.ghsParser = ghsParser
         self.uuid = uuid
         self.centerLong = centerLong
