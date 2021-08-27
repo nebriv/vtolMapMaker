@@ -14,3 +14,4 @@ height.png
 .flaskenv
 .env
 requirements_old.txt
+/GHS_Data.npy
