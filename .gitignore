@@ -15,3 +15,4 @@ height.png
 .env
 requirements_old.txt
 /GHS_Data.npy
+.vscode/
