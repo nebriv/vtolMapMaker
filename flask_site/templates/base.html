@@ -1,5 +1,11 @@
 <!doctype html>
 <head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
+            crossorigin="anonymous"></script>
+
     <title>{% block title %}{% endblock %} - Flaskr</title>
 
     {% block styles %}{% endblock %}
@@ -74,27 +80,50 @@
             -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
         }
 
+
     </style>
 </head>
 <body>
 <nav>
     <h1>VTOL Map Maker v{{ version }}</h1>
-    <h2>Here's a bad frontend for my <a href="https://github.com/nebriv/vtolMapMaker">VTOL VR Map Generator</a>. No promises.</h2>
+    <h2>Here's a bad frontend for my <a href="https://github.com/nebriv/vtolMapMaker">VTOL VR Map Generator</a>. No
+        promises.</h2>
     <h4>Some Notes...</h4>
     <ul>
         <li>Roads are really janky, you may not be able to interact with them in VTOL.</li>
         <li>Airports are really janky, you may not be able to interact with them in VTOL.</li>
-        <li>The city paint is configurable using the "City Paint Removal" slider. The higher it is the more city paint is removed (removes up to 95% of the paint).</li>
+        <li>The city paint is configurable using the "City Paint Removal" slider. The higher it is the more city paint
+            is removed (removes up to 95% of the paint).
+        </li>
         <li>Yes, I know not all edge types are supported.</li>
-        <li>I believe the resolution <i>should</i> be fairly close to appropriate scale in vtol. I've tried to match what you'll see in the game based on the zoom levels in map below. Its not perfect, but should work.</li>
+        <li>I believe the resolution <i>should</i> be fairly close to appropriate scale in vtol. I've tried to match
+            what you'll see in the game based on the zoom levels in map below. Its not perfect, but should work.
+        </li>
         <li>VTOL Map Sizes: 64=192km, 32=96km, 16=48km, 13=39km, 8=24km</li>
         <li>The heights should be close to scale, you can adjust them further with the offset slider.</li>
 
     </ul>
 </nav>
+
+<ul class="nav">
+    <li class="nav-item">
+        <a class="nav-link active" aria-current="page" href="#">Active</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#">Link</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#">Link</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
+    </li>
+</ul>
 {% block content %}{% endblock %}
 
-{% block scripts %}{% endblock %}
+{% block scripts %}
+
+{% endblock %}
 
 </body>
 
