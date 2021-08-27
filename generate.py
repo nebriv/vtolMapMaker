@@ -1,7 +1,8 @@
 import configparser
 from lib.helpers import *
 from lib.MapGenManager import MapGenManager
-
+import os
+import time
 # TODO: Cleanup Code, road height, city density
 
 logger = logging.getLogger(__name__)
@@ -25,44 +26,99 @@ else:
 
 
 
-
+# subDivisions = 512
+# topLeft = [36.693492432000426,-118.99671543200044]
+# bottomRight = [35.82949156799956, -118.13271456799959]
+#
+# lats = sorted([topLeft[0], bottomRight[0]])
+# lons = sorted([topLeft[1], bottomRight[1]])
+#
+# longCords = pointiterator(lons[0], lons[1], subDivisions)
+# latCords = pointiterator(lats[0], lats[1], subDivisions)
+#
+# longs = np.fromiter(longCords, dtype=np.float64)
+# # print(longs)
+#
+#
+# lats = np.fromiter(latCords, dtype=np.float64)
+# myarray = np.meshgrid(longs, lats, indexing='xy')
+#
+#
+# xo, yo = np.meshgrid(longs, lats, indexing='xy')
+# #
+# # # make array of tuples
+# tups = np.rec.fromarrays([xo, yo], names='longitude,latitude')
+#
+# print(tups.shape)
+# print(tups.size)
+#
+#
+# # for x in np.nditer(tups):
+#
+#
+# coords = tups.flatten()
+# total_cords = len(coords)
+#
+# chunks = np.array_split(coords, 250)
+#
+#
+# url = "https://api.open-elevation.com/api/v1/lookup"
+#
+# heights = []
+#
+# for chunk in chunks:
+#
+#     request_data = {"locations": []}
+#
+#     for cord in chunk:
+#         request_data['locations'].append({"latitude": cord[1], "longitude": cord[0]})
+#
+#     print(request_data)
+#
+#     r = requests.post(url, json=request_data)
+#     print(r.status_code)
+#     for each in r.json()['results']:
+#
+#         print(each['elevation'])
+#
+#
+# exit()
 if __name__ == "__main__":
     forceBelowZero = False
     getData = True
     forceRefresh = False
 
     rebuildCity = False
-    disableCityPaint = False
-    generateRoads = True
+    disableCityPaint = True
+    generateRoads = False
 
     map_name = "nevada"
     biome = "Boreal"
     edgeType = "hills"
 
-    centerLong = -115.564715
-    centerLat = 37.261492
+    centerLong = -73.9049472
+    centerLat = 40.7732224
 
     # NYC
     # centerLong = -73.972005
     # centerLat = 40.773345
 
     # Meters
-    mapWidth = 96000
+    mapWidth = 192000
 
     # Height Offset
     offsetAmount = 0
 
     # HM Resolution
-    mapResolution = 256
+    mapResolution = 512
 
     cityAdjust = 20
     minHighwayLength = 5
-    bingAPIKey = config['BingAPI']['key']
     nextzenAPIKey = config['NextZen']['key']
 
     ghsFile = "GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif"
 
-    generator = MapGenManager(bingAPIKey, nextzenAPIKey, ghsFile)
+    generator = MapGenManager(nextzenAPIKey, "maps", ghsFile)
 
     uuid = generator.create_map(centerLong=centerLong, centerLat=centerLat, forceBelowZero=forceBelowZero, forceRefresh=forceRefresh,
                                 rebuildCity=rebuildCity, disableCityPaint=disableCityPaint, cityAdjust=cityAdjust,
@@ -74,8 +130,13 @@ if __name__ == "__main__":
         if status != last_status:
             print(status)
             last_status = status
-        if status == "Done":
-            break
 
-    print(generator.get_zip(uuid))
-    print(generator.get_heightmap_image(uuid))
+        if "Status" in status:
+            if status["Status"] == "Done":
+                exit()
+        if "Error" in status:
+            exit()
+        if generator.count_running_threads() == 0:
+            print("Generator thread exited unexpectedly!")
+            exit()
+        time.sleep(1)

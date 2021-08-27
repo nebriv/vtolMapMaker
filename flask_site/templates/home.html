@@ -98,17 +98,14 @@
           <input id="longitudeValue" value="Longitude" name="longitudeValue" placeholder="Longitude">
             <input type="button" value="My Location" id="mylocation">
        </div>
-        <div class="forceBelowZero">
-            <label>Force below zero (Forces more water into vtol map): </label>
-            <input type="checkbox" id="forceBelowZero" name="forceBelowZero">
-        </div>
+
         <div class="disableCityPaint">
             <label>Disable City Paint: </label>
             <input type="checkbox" id="disableCityPaint" name="disableCityPaint">
         </div>
         <div class="cityAdjust" id="cityAdjustContainer">
-            <label>City Offset: <span id="cityAdjustValue">10</span></label>
-            <input type="range" id="cityAdjust" min="1" max="50" value="10" class="slider" name="cityAdjust">
+            <label>City Paint Removal: <span id="cityAdjustValue">10</span>% removed</label>
+            <input type="range" id="cityAdjust" min="1" max="95" value="10" class="slider" name="cityAdjust">
         </div>
         <div class="generateRoads">
             <label>Generate Roads: </label>
@@ -118,8 +115,12 @@
             <label>Minimum Highway Length: <span id="minimumHighwayLengthValue">5</span></label>
             <input type="range" id="minimumHighwayLength" min="1" max="20" value="5" class="slider" name="minHighwayLength">
         </div>
-        <div class="offsetAmount">
-            <label>Heightmap Offset <span id="offsetAmountSliderValue">15</span></label>
+        <div class="forceBelowZero">
+            <label>Force below zero (Forces more water into vtol map): </label>
+            <input type="checkbox" id="forceBelowZero" name="forceBelowZero">
+        </div>
+        <div class="offsetAmount" id="offsetContainer" style="display: none">
+            <label>Below water amount <span id="offsetAmountSliderValue">15</span></label>
                <input type="range" id="offsetAmountSlider" min="0" max="100" value="15" class="slider" name="offsetAmount">
         </div>
 <!--        <div class="mapWidth">-->
@@ -147,7 +148,7 @@
                   <option value="Boreal">Boreal</option>
             </select>
         </div>
-        <button type="submit" form="mapGenerator" value="Submit">Submit</button>
+        <button id="submitButton" type="submit" form="mapGenerator" value="Submit"><span id="count">Submit</span></button>
     </form>
 
 </div>
@@ -199,6 +200,7 @@
         event.preventDefault();
         downloadMap(uuid);
     } );
+    var statusCounter = 0;
     function getStatus(){
         document.getElementById("generator").style.display = "none";
         document.getElementById("results").style.display = "block";
@@ -208,12 +210,20 @@
         // Define what happens on successful data submission
         XHR.addEventListener( "load", function(event) {
             status = event.target.response.Status;
-            if (status !== "Done") {
-                console.log("Current Status: "  + status)
+
+            if (event.target.response.Status === "Error"){
+                document.getElementById("currentStatus").innerText = event.target.response.Error
+            }else if (status !== "Done") {
+
+                statusCounter++;
                 document.getElementById("currentStatus").innerText = status
+
+                if (statusCounter % 5 === 0  ){
+                    document.getElementById("currentStatus").innerText = document.getElementById("currentStatus").innerText + " - Don't worry, we're still processing!"
+                }
+
                 setTimeout(getStatus, 1000);
             } else{
-                console.log("Done!!")
                 document.getElementById("currentStatus").innerText = "Completed!"
                 showImage(uuid);
                 document.getElementById("download").style.display = 'block'
@@ -222,7 +232,7 @@
         } );
         // Define what happens in case of error
         XHR.addEventListener( "error", function( event ) {
-          alert( 'Oops! Something went wrong.' );
+          document.getElementById("currentStatus").innerText = "Error connecting to backend service! Please try again later."
         } );
         // Set up our request
         XHR.open( "GET", "/api/maps/" + uuid + "/status" );
@@ -231,12 +241,32 @@
         // The data sent is what the user provided in the form
         XHR.send();
     }
+    var spn = document.getElementById("count");
+    var btn = document.getElementById("submitButton");
+
+    var count = 60;     // Set count
+    var timer = null;  // For referencing the timer
+    function countDown(){
+
+        // Display counter and start counting down
+        spn.textContent = "Please Wait - " + count + " seconds";
+
+        // Run the function again every second if the count is not zero
+        if(count !== 0){
+            timer = setTimeout(countDown, 1000);
+            count--; // decrease the timer
+        } else {
+            // Enable the button
+            btn.removeAttribute("disabled");
+            spn.textContent = "Submit"
+        }
+    }
 
     window.addEventListener( "load", function () {
   function sendData() {
 
     const XHR = new XMLHttpRequest();
-    XHR.responseType = "json";
+    // XHR.responseType = "json";
 
     // Bind the FormData object and the form element
     const FD = new FormData( form );
@@ -244,21 +274,31 @@
     var jsonData = JSON.stringify(Object.fromEntries(FD));
     // Define what happens on successful data submission
     XHR.addEventListener( "load", function(event) {
-        response = event.target.response;
-        if (response.errors === false) {
-            uuid = response.uuid;
-            setTimeout(getStatus, 100);
-        } else{
-            errordata = "";
-            console.log()
 
-            for (var i = 0; i < response.validationErrors.length; i++) {
-                for (const [key, value] of Object.entries(response.validationErrors[i])){
-                    errordata += key + " - " + value + "\n";
-                }
+        if (event.target.status !== 200) {
+            if (event.target.responseText.includes("currently overloaded")){
+                alert("We're currently overloaded, please try resubmitting in a few minutes.")
+                countDown();
+            } else {
+
             }
 
-            alert(errordata);
+        } else {
+            var response = JSON.parse(event.target.responseText);
+            if (response.errors === false) {
+                uuid = response.uuid;
+                setTimeout(getStatus, 100);
+            } else{
+                errordata = "";
+                console.log(response.errors)
+
+                for (var key in response.errors) {
+                    if (response.errors.hasOwnProperty(key)) {
+                        errordata += response.errors[key] + " ";
+                    }
+                }
+                alert(errordata);
+            }
         }
 
     } );
@@ -313,7 +353,13 @@
       minimumHighwayLengthValue.innerHTML = this.value;
     }
 
-
+    document.getElementById("forceBelowZero").addEventListener('change', (event) => {
+      if (event.currentTarget.checked) {
+        document.getElementById("offsetContainer").style.display = "block";
+      } else {
+        document.getElementById("offsetContainer").style.display = "none";
+      }
+    })
 
     document.getElementById("disableCityPaint").addEventListener('change', (event) => {
       if (event.currentTarget.checked) {

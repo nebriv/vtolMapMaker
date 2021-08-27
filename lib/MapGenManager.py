@@ -3,7 +3,7 @@ from lib.helpers import *
 from uuid import uuid4
 from lib.MapGenSettings import GenSettings
 from lib.MapGen import MapGen
-
+import os
 
 # TODO: Cleanup Code, road height, city density
 
@@ -30,13 +30,12 @@ logger.setLevel('DEBUG')
 class MapGenManager:
     generation_threads = {}
 
-    def __init__(self, bingAPIKey, nextzenAPIKey, outputDir, ghsFile='GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif'):
+    def __init__(self, nextzenAPIKey, outputDir, ghsFile='GHS_BUILT_LDS2014_GLOBE_R2018A_54009_1K_V2_0.tif'):
         self.ghsParser = ghsDataParser(ghsFile)
 
         if not os.path.isdir("dataSets"):
             os.mkdir("dataSets")
 
-        self.bingAPIKey = bingAPIKey
         self.nextzenAPIKey = nextzenAPIKey
         self.outputDir = outputDir
 
@@ -48,7 +47,9 @@ class MapGenManager:
         #              minHighwayLength=5, mapName=None, generateRoads=True, edgeType="Hills", biome="Boreal"):
         # thread = threading.Thread(target=self.mapper.generate, args=(uuid, centerLong, centerLat, forceBelowZero, forceRefresh, rebuildCity, disableCityPaint, cityAdjust, resolution, offsetAmount, mapWidth, minHighwayLength, mapName, generateRoads, biome, edgeType))
 
-        mapSettings = GenSettings(bingAPIKey=self.bingAPIKey, nextzenAPIKey=self.nextzenAPIKey, outputDir=self.outputDir, ghsParser=self.ghsParser, uuid=uuid, **kwargs)
+        generation_delay = self.count_running_threads() ** 1.8
+
+        mapSettings = GenSettings(nextzenAPIKey=self.nextzenAPIKey, outputDir=self.outputDir, ghsParser=self.ghsParser, uuid=uuid, delay=generation_delay,  **kwargs)
 
         map_thread = MapGen(mapSettings)
 
@@ -60,8 +61,9 @@ class MapGenManager:
     def count_running_threads(self):
         count = 0
         for thread in self.generation_threads:
-            if self.generation_threads[thread].status != {"Status": "Done"} and "Error" not in self.generation_threads[thread].status:
-                count += 1
+            if self.generation_threads[thread].is_alive():
+                if self.generation_threads[thread].status != {"Status": "Done"} and "Error" not in self.generation_threads[thread].status:
+                    count += 1
         return count
 
     def get_thread_status(self, uuid):

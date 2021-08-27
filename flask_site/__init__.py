@@ -1,26 +1,28 @@
 import os
 from flask import Flask
-from flask import Response
 from flask_site.utils import validate_uuid4, serve_pil_image
 from flask import abort, jsonify
 from flask import request
 from flask import render_template
 from os import environ
-import configparser
 from lib.MapGenManager import MapGenManager
 from lib.MapGenSettings import ValidSettings
-from dotenv import load_dotenv
-from flask import make_response
 from flask import send_file, send_from_directory
-from tempfile import NamedTemporaryFile
-from shutil import copyfileobj
-from os import remove
-import re
-import string
+from dotenv import load_dotenv
+import logging
+from lib.helpers import getVersion
 
+logger = logging.getLogger(__name__)
 
-version = 1.0
-BingAPI = environ.get('BingAPI')
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+logger.addHandler(handler)
+logger.setLevel('DEBUG')
+
+load_dotenv()
+version = getVersion()
 NextZen = environ.get('NextZen')
 OutputDir = environ.get('OutputDir')
 StaticDir = environ.get('StaticDir')
@@ -33,12 +35,16 @@ try:
 except OSError:
     pass
 
-generator = MapGenManager(BingAPI, NextZen, OutputDir)
+generator = MapGenManager(NextZen, OutputDir)
+
+@app.context_processor
+def inject_dict_for_all_templates():
+    return dict(version= version)
 
 # a simple page that says hello
 @app.route('/')
 def hello():
-    if generator.count_running_threads() > 4:
+    if generator.count_running_threads() > 5:
         return abort(503, description="Sorry - we're currently overloaded and cannont accept more map requests. Please try again shortly!")
 
     return render_template('home.html', content={"uuid": "123", "version": version})
@@ -47,7 +53,7 @@ def hello():
 @app.route('/api/maps/createMap', methods=['POST'])
 def createMap():
 
-    if generator.count_running_threads() > 1:
+    if generator.count_running_threads() > 10:
         return abort(503, description="Sorry - we're currently overloaded and cannont accept more map requests. Please try again shortly!")
 
     validationErrors = []
@@ -66,7 +72,13 @@ def createMap():
         edgeType = settings['edgeType']
         zoomValue = int(settings['zoomValue'])
     except KeyError as err:
-        return jsonify({"errors": "Missing value %s" % err})
+        return jsonify({"errors": ["Missing input value"]})
+    except ValueError as err:
+        return jsonify({"errors": ["Incorrect input value"]})
+    except Exception as err:
+        logger.error("Error in map create api: %s" % err)
+        return jsonify({"errors": ["Exception in map creation API."]})
+
 
 
     if "forceBelowZero" in settings:
@@ -96,9 +108,7 @@ def createMap():
                    10:16,
                    11:13,
                    12:8}
-    print(zoomValue)
     mapWidth = zoomMapping[zoomValue]
-    print(mapWidth)
     mapWidth = mapWidth * 1000 * 3
 
     if biome not in ValidSettings.biomes:
@@ -132,8 +142,9 @@ def status(uuid):
         status = generator.get_thread_status(uuid)
         print(status)
         if status:
-            if "Error" in status:
-                return abort(500, description=status['Error'])
+            # if "Error" in status:
+            #
+            #     return abort(500, description=status['Error'])
             return jsonify(status)
         else:
             return abort(404, description="Invalid resource ID")

@@ -3,9 +3,8 @@ import hashlib
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 import logging
-import os
-import zipfile
 import shutil
+from lib.version import versionNumber
 
 # TODO: Cleanup Code, road height, city density
 
@@ -18,8 +17,6 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel('DEBUG')
 
-
-
 class Vector3D:
     def __init__(self, x, y, z):
         self.x = x  # lat
@@ -30,7 +27,8 @@ class Vector3D:
         return "%s, %s, %s" % (self.x, self.y, self.z)
 
 
-
+def getVersion():
+    return versionNumber
 
 def format_filename(s):
     import string
@@ -62,6 +60,26 @@ def convertGlobaltoWorldPoint(vector3):
     return vector
 
 
+def pointiterator(fra,til,steps):
+    '''
+    generator, like range() but uses number of steps,
+    and handles edge cases (like -180 to +180 crossover)
+    '''
+    val = fra
+    if til < fra:
+        til += 360.0
+    stepsize = (til - fra)/steps
+    while val < til + stepsize:
+        if (val > 180.0):
+            yield val - 360.0
+        else:
+            yield val
+        val += stepsize
+
+
+def split_given_size(a, size):
+    return np.split(a, np.arange(size,len(a),size))
+
 def convertToWorldPoint(vector, mapLatitude, mapLongitude):
     # From BD's conversion code in VTMapManager
     num = vector.x - mapLatitude
@@ -82,8 +100,8 @@ def getGridFromWorldPoint(vector, mapResolution):
     #     return new IntVector2(x, y);
     # }
 
-    logger.debug(
-        "Converting WorldPoint (x:%s,y:%s,z:%s,res:%s) to grid" % (vector.x, vector.y, vector.z, mapResolution))
+    # logger.debug(
+    #     "Converting WorldPoint (x:%s,y:%s,z:%s,res:%s) to grid" % (vector.x, vector.y, vector.z, mapResolution))
 
     x = int(round(vector.x / mapResolution, 0))
     y = int(round(vector.z / mapResolution, 0))
@@ -191,21 +209,16 @@ def metersForTile(tile):
 
 def getPoints(subDivisions, southLat, westLong, eastLong, distanceBetween):
     logger.debug("Getting points between lat/lons")
-    points = []
-    for i in range(subDivisions):
-        lat = southLat + (distanceBetween * i)
-        long1 = westLong
-        long2 = eastLong
 
-        #
-        # Get the distance between the left and right points, and found how many subdivisions fit in it
-        hopValue = (long2 - long1) / subDivisions
-        long3 = long1
-        # print("Getting Build Up Data")
-        for x in range(subDivisions):
-            long3 += hopValue
-            points.append({'y': lat, 'x': long3})
-    return points
+    cord_list = []
+    for i in range(subDivisions):
+
+        lat = southLat + (distanceBetween * i)
+        for each in np.linspace(eastLong, westLong, subDivisions):
+            cord_list.append((lat, each))
+
+    logger.debug("POINT COUNT: %s" % len(cord_list))
+    return cord_list
 
 
 def offsetHeights(heights, amount):
@@ -234,3 +247,5 @@ def zipdir(path, zip_file):
     #
     # zipf.close()
     #
+
+
