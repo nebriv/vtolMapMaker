@@ -11,6 +11,8 @@ from flask import send_file, send_from_directory
 from dotenv import load_dotenv
 import logging
 from lib.helpers import getVersion
+import pathlib
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,10 @@ version = getVersion()
 NextZen = environ.get('NextZen')
 OutputDir = environ.get('OutputDir')
 StaticDir = environ.get('StaticDir')
+
+if not StaticDir:
+    StaticDir = os.path.join(pathlib.Path(__file__).parent.resolve(), "static")
+
 # create and configure the app
 app = Flask(__name__, instance_relative_config=True, static_folder=StaticDir)
 

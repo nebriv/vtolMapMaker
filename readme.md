@@ -1,4 +1,11 @@
+# Ignore everything below.
+
+Build the docker container. Run the docker container.
+
 # Usage
+
+
+
 
 Idk - fill in the variables down at the bottom of the script and see if it works. I'll break this out and fill this in as it becomes more finished.
 
