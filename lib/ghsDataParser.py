@@ -119,8 +119,8 @@ class ghsDataParser:
         required_rows = []
         for i in range(subDivisions):
             lat = southLat + (distanceBetween * i)
-            long1 = westLong
-            long2 = eastLong
+            long2 = westLong
+            long1 = eastLong
 
             # Get the distance between the left and right points, and found how many subdivisions fit in it
             hopValue = (long2 - long1) / subDivisions

@@ -88,20 +88,21 @@ if __name__ == "__main__":
     getData = True
     forceRefresh = False
 
-    rebuildCity = False
-    disableCityPaint = True
+    rebuildCity = True
+    disableCityPaint = False
     generateRoads = False
 
     map_name = "nevada"
     biome = "Boreal"
     edgeType = "hills"
 
-    centerLong = -73.9049472
-    centerLat = 40.7732224
+    # Cape Code NOT FLIPPED???
+    centerLong = -70.27130126953126
+    centerLat = 41.93701966042529
 
-    # NYC
-    # centerLong = -73.972005
-    # centerLat = 40.773345
+    # NYC FLIPPED????
+    centerLong = -73.972005
+    centerLat = 40.773345
 
     # Meters
     mapWidth = 192000
@@ -112,7 +113,7 @@ if __name__ == "__main__":
     # HM Resolution
     mapResolution = 512
 
-    cityAdjust = 20
+    cityAdjust = 95
     minHighwayLength = 5
     nextzenAPIKey = config['NextZen']['key']
 

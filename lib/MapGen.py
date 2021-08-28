@@ -125,7 +125,6 @@ class MapGen(threading.Thread):
             # Get points between locations for use with height map and tile fetch
             coordinate_list = getPoints(self.settings.resolution, southLat, westLong, eastLong, distanceBetween)
 
-
             self.status = {"Status": "Collecting area roads and airports"}
 
             if len(coordinate_list) > 0:
@@ -163,6 +162,7 @@ class MapGen(threading.Thread):
                     logger.debug("Max Build Up: %s" % maxBuildup)
                     logger.debug("Min Build Up: %s" % minBuildup)
                 elif cachedData:
+                    logger.debug("Got cached city data")
                     buildup_list, maxBuildup, minBuildup = cachedData['builduplist'], cachedData['maxBuildup'], cachedData['minBuildup']
                 else:
                     logger.error("Final Else hit on cache/rebuild check for city paint generation")
@@ -178,6 +178,10 @@ class MapGen(threading.Thread):
                 self.status = {"Status": "Collecting height map data."}
                 heights, minHeight, maxHeight = self.getOpenElevationBoundingBox(coordinate_list)
 
+            # logger.debug("Smoothing height map")
+            # heights = smoothPoints(heights, smoothness=10)
+
+
             heightData = {"heights": heights, "minHeight": minHeight, "maxHeight": maxHeight,
                           "builduplist": buildup_list,
                           "minBuildup": minBuildup, "maxBuildup": maxBuildup, 'centerLat': self.settings.centerLat,
@@ -192,7 +196,26 @@ class MapGen(threading.Thread):
             logger.debug("Min Height: %s" % minHeight)
             logger.debug("Max Height: %s" % maxHeight)
 
+            vtolvr_heightoffset = 0
+            if self.settings.forceBelowZero:
+                self.status = {"Status": "Running height map offset calculations"}
+                vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
+                logger.debug("Height Adjustment: %s" % vtolvr_heightoffset)
 
+                logger.debug(heights[0:10])
+
+                c = 0
+                for height in heights:
+                    if height < 0:
+                        c += 1
+                logger.debug("number of heights below 0: %s" % c)
+                heights = offsetHeights(heights, vtolvr_heightoffset)
+
+                c = 0
+                for height in heights:
+                    if height < 0:
+                        c += 1
+                logger.debug("number of heights below 0: %s" % c)
 
             if self.settings.generateRoads:
                 highwaySegments = self.generateHighways(highways, vtolvr_heightoffset, latOffset, longOffset)
@@ -232,8 +255,14 @@ class MapGen(threading.Thread):
             logger.debug("Creating Height Map: %s" % heightMapFile)
             self.status = {"Status": "Creating height map"}
 
-            self.heightMap = self.createHeightMapFile(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust)
-            self.heightMap.save(heightMapFile)
+
+            #heights = smoothPoints(heights, 5)
+
+            generatedPixels = self.generatePixels(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust)
+
+            self.heightMap = self.generateSingleMap(generatedPixels, self.settings.resolution, heightMapFile)
+
+            self.generateSplitMap(generatedPixels, self.settings.resolution, heightMapFile, 4)
 
             self.status = {"Status": "Creating zip"}
             self.zipFile = os.path.join(uuid_folder, "%s.zip" % self.settings.mapName)
@@ -422,13 +451,109 @@ class MapGen(threading.Thread):
     def generateAirportConfig(self):
         pass
 
-    def createHeightMapFile(self, heights, width, maxHeight, minHeight, buildup, cityAdjust):
+    def generateSplitMap(self, pixels, width, fileName, count):
+
+        greens = []
+        reds = []
+
+        for i in range(width):
+            for j in range(width):
+                if i < width and j < width:
+                    index = j + (width * i)
+
+                    greenValue = int(pixels[index][1])
+                    redValue = int(pixels[index][0])
+                    greens.append(greenValue)
+                    reds.append(redValue)
+
+        greens_split = splitHeight(greens, count)
+        reds_split = splitHeight(reds, count)
+
+
+        for c in range(count):
+
+            image = Image.new('RGBA', (width, width))
+            for i in range(width):
+                for j in range(width):
+                    if i < width and j < width:
+                        index = j + (width * i)
+                        redValue = reds_split[c][index]
+                        image.putpixel((i, j), (redValue, 0, 0, 255))
+
+            image = smoothImage(image, 2)
+
+            for i in range(width):
+                for j in range(width):
+                    if i < width and j < width:
+                        index = j + (width * i)
+
+                        greenValue = greens_split[c][index]
+
+                        redValue = image.getpixel((i, j))[0]
+
+                        if redValue < 2:
+                            greenValue = 0
+
+                        if greenValue < 0:
+                            image.putpixel((i, j), (0, 0, 0, 255))
+                        else:
+                            image.putpixel((i, j), (redValue, greenValue, 0, 255))
+
+
+            image = ImageOps.mirror(image)
+            image = image.rotate(270)
+
+            splitFileName = fileName.replace(".png", "%s.png" % c)
+
+            image.save(splitFileName)
+
+
+    def generateSingleMap(self, pixels, width, mapFileName):
+        image = Image.new('RGBA', (width, width))
+
+        for i in range(width):
+            for j in range(width):
+                if i < width and j < width:
+                    index = j + (width * i)
+
+                    redValue = int(pixels[index][0])
+                    if redValue < 0:
+                        image.putpixel((i, j), (0, 0, 0, 255))
+                    else:
+                        image.putpixel((i, j), (redValue, 0, 0, 255))
+
+        image = smoothImage(image, 2)
+
+        for i in range(width):
+            for j in range(width):
+                if i < width and j < width:
+                    index = j + (width * i)
+
+                    greenValue = int(pixels[index][1])
+
+                    redValue = image.getpixel((i,j))[0]
+
+                    if redValue < 2:
+                        greenValue = 0
+
+                    if greenValue < 0:
+                        image.putpixel((i, j), (0, 0, 0, 255))
+                    else:
+                        image.putpixel((i, j), (redValue, greenValue, 0, 255))
+
+        image = ImageOps.mirror(image)
+        image = image.rotate(270)
+        image.save(mapFileName)
+
+        return image
+
+    def generatePixels(self, heights, width, maxHeight, minHeight, buildup, cityAdjust):
         heightDiff = maxHeight - minHeight;
         scaleFactor = 1.0
 
-        scaling_mode = "exaggerated"
+        scaling_mode = None
 
-        pixel_scale = 23.5294117647059
+        pixel_scale = 5.8823529411764
 
         logger.debug(heightDiff)
         if heightDiff > 255:
@@ -441,34 +566,10 @@ class MapGen(threading.Thread):
 
         logger.debug("Average height: %s" % np.average(heights))
 
-        # exit()
-        image = Image.new('RGBA', (width, width))
-
-        vtolvr_heightoffset = 0
-        if self.settings.forceBelowZero:
-            self.status = {"Status": "Running height map offset calculations"}
-            vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
-            logger.debug("Height Adjustment: %s" % vtolvr_heightoffset)
-
-            logger.debug(heights[0:10])
-
-            c = 0
-            for height in heights:
-                if height < 0:
-                    c += 1
-            logger.debug("number of heights below 0: %s" % c)
-            heights = offsetHeights(heights, vtolvr_heightoffset)
-
-            c = 0
-            for height in heights:
-                if height < 0:
-                    c += 1
-            logger.debug("number of heights below 0: %s" % c)
+        maxGreen = 0
+        minGreen = 300
 
         if len(buildup) > 0:
-            maxGreen = 0
-            minGreen = 300
-
             # Finds the new min/max after adjust for the city adjust parameter (To reduce the number of cities)
             for i in range(width):
                 for j in range(width):
@@ -501,39 +602,44 @@ class MapGen(threading.Thread):
             logger.debug("Not enough build up data.")
 
 
+        red_pixels = []
+        green_pixels = []
+
         for i in range(width):
             for j in range(width):
                 if i < width and j < width:
                     index = j + (width * i)
 
                     belowWater = False
-
-                    if heights[index] < -3:
-                        belowWater = True
-
                     height = heights[index]
+
+                    if height > 6000:
+                        height = 6000
+
+
+                    height = heights[index] + 3
+
                     if scaling_mode == "exaggerated":
+                        height += .5
                         height_scale = height / mean_height
                         if height_scale > .1:
-                            if height_scale > 1.2:
-                                height = height * (height_scale * .2)
-                            if height_scale < .2:
+                            if height_scale > 3:
+                                height = height * (height_scale * .3)
+                            elif height_scale > 2.5:
+                                height = height * (height_scale * .4)
+                            elif height_scale > 2:
+                                height = height * (height_scale * .5)
+                            elif height_scale > 1.5:
+                                height = height * (height_scale * 1.1)
+                            elif height_scale < .4:
                                 height = height / (height_scale * 1.2)
-
-                    if height < 50 and height > 3:
-                        redValue = 2
-                    elif height > 6000:
-                        redValue = 255
-                    else:
-                        redValue = int(round(height/pixel_scale,0))
+                            elif height_scale < .2:
+                                height = height / (height_scale * 1.3)
+                            elif height_scale < .1:
+                                height = height / (height_scale * 1.4)
 
 
-                    if redValue > 255:
-                        redValue = 255
-                    elif redValue < 0:
-                        redValue = 0
-
-                    if not self.settings.disableCityPaint:
+                    if not self.settings.disableCityPaint and len(buildup) > 0:
                         afterCityAdjust = buildup[index] - cityAdjust
 
                         if afterCityAdjust < 0:
@@ -541,7 +647,7 @@ class MapGen(threading.Thread):
                         else:
                             buildupValue = ((buildup[index] - cityAdjust) * cityScale)
 
-                        greenValue = int(buildupValue)
+                        greenValue = buildupValue
                         if greenValue < 0:
                             greenValue = 0
 
@@ -551,24 +657,106 @@ class MapGen(threading.Thread):
                         if greenValue < minGreen:
                             minGreen = greenValue
 
-                        if belowWater:
-                            greenValue = 0
-
                     else:
                         greenValue = 0
 
-                    if redValue < 0 and greenValue < 0:
-                        image.putpixel((i, j), (0, 0, 0, 255))
-                    else:
-                        image.putpixel((i, j), (redValue, greenValue, 0, 255))
 
-        image = ImageOps.mirror(image)
-        image = ImageOps.flip(image)
-        image = image.transpose(Image.ROTATE_270)
+                    # forward_index = index+10
+                    # if forward_index > width * width:
+                    #     forward_index = width * width
+                    #
+                    #
+                    # backward_index = index-10
+                    # if backward_index < 0:
+                    #     backward_index = 0
+                    #
+                    # up_indexes = []
+                    # for u_i in range(3):
+                    #     up_i = index + (u_i * width)
+                    #     if up_i > width * width:
+                    #         break
+                    #     try:
+                    #         up_indexes.append(heights[up_i])
+                    #     except IndexError as err:
+                    #         break
+                    #
+                    #
+                    #
+                    # down_indexes = []
+                    # for d_i in range(3):
+                    #     down_i = index - (d_i * width)
+                    #     if down_i <= 0:
+                    #         break
+                    #     try:
+                    #         down_indexes.append(heights[down_i])
+                    #     except IndexError as err:
+                    #         break
+                    #
+                    # average_up = np.mean(up_indexes)
+                    # average_down = np.mean(down_indexes)
+                    # average_forward = np.mean(heights[index:forward_index])
+                    # average_backward = np.mean(heights[backward_index:index])
+                    # adjancents = np.mean([average_backward, average_up, average_forward, average_down])
+                    # #
+                    # if average_forward == np.nan:
+                    #     average_forward = 0
+                    # if average_backward == np.nan:
+                    #     average_backward = 0
+                    # if height < 0:
+                    #     if height < adjancents:
+                    #         logger.debug("Height (%s) is below adjacent averages - %s" % (height, adjancents))
+                    #         height = height + adjancents
+                    #         logger.debug("New Height %s" % height)
+                    # if height < 50 and height > 0:
+                    #     logger.debug("Height less than 50")
+                    #     height = height * 1.2
+                    # elif height < 25 and height > -10:
+                    #     logger.debug("Height less than 20")
+                    #     height = height * 1.5
+                    if height > 6000:
+                        height = 6000
 
-        # image.save(heightMapFile, "PNG")
-        # image.show()
-        return image
+                    if height < 10:
+                        height = height * 5
+                    elif height < 20:
+                        height = height * 4
+                    elif height < 30:
+                        height = height * 3
+                    elif height < 40:
+                        height = height * 2
+                    elif height < 50:
+                        height = height * 1.8
+                    elif height < 60:
+                        height = height * 1.7
+                    elif height < 70:
+                        height = height * 1.6
+                    elif height < 80:
+                        height = height * 1.5
+                    elif height < 90:
+                        height = height * 1.25
+
+                    if greenValue > 20:
+                        if height < 20:
+                            greenValue = 0
+                        elif height < 30:
+                            height = 30
+
+                    redValue = height/pixel_scale
+
+
+
+                    red_pixels.append(redValue)
+
+                    green_pixels.append(greenValue)
+
+        pixels = []
+        for i in range(width):
+            for j in range(width):
+                if i < width and j < width:
+                    index = j + (width * i)
+                    pixels.append((red_pixels[index], green_pixels[index], 0, 0))
+
+        return pixels
 
     def getOpenElevationBoundingBox(self, points):
         logger.debug("Getting Terrain Data")
