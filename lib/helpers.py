@@ -5,6 +5,9 @@ from scipy.spatial.distance import pdist, squareform
 import logging
 import shutil
 from lib.version import versionNumber
+import numpy as np
+from PIL import Image
+import scipy.ndimage as ndimage
 
 # TODO: Cleanup Code, road height, city density
 
@@ -211,15 +214,58 @@ def getPoints(subDivisions, southLat, westLong, eastLong, distanceBetween):
     logger.debug("Getting points between lat/lons")
 
     cord_list = []
-    for i in range(subDivisions):
 
+    for i in range(subDivisions):
         lat = southLat + (distanceBetween * i)
-        for each in np.linspace(eastLong, westLong, subDivisions):
-            cord_list.append((lat, each))
+        long1 = westLong
+        long2 = eastLong
+
+        # Get the distance between the left and right points, and found how many subdivisions fit in it
+        hopValue = (long2 - long1) / subDivisions
+        long3 = long1
+        # print("Getting Build Up Data")
+
+        for x in range(subDivisions):
+            long3 += hopValue
+            cord_list.append((lat, long3))
+
+    # for i in range(subDivisions):
+    #
+    #     lat = southLat + (distanceBetween * i)
+    #     for each in np.linspace(westLong, eastLong, subDivisions):
+    #         cord_list.append((lat, each))
+
 
     logger.debug("POINT COUNT: %s" % len(cord_list))
     return cord_list
 
+
+def getMatrix(points):
+    x = []
+    y = []
+    for point in points:
+        x.append(point[0])
+        y.append(point[1])
+
+    two_d_array = np.column_stack((x, y))
+
+    mesh = np.meshgrid(x,y)
+
+    print(mesh)
+
+
+def smoothPoints(points, smoothness=10):
+    kernel_size = smoothness
+    kernel = np.ones(kernel_size) / kernel_size
+    data_convolved = np.convolve(points, kernel, mode='same')
+    return data_convolved
+
+def smoothImage(image, strength):
+    img = ndimage.gaussian_filter(image, sigma=(strength, strength, 0), order=0)
+
+    img = Image.fromarray(img, 'RGBA')
+
+    return img
 
 def offsetHeights(heights, amount):
     newHeights = []
@@ -247,5 +293,35 @@ def zipdir(path, zip_file):
     #
     # zipf.close()
     #
+
+def splitColor(color, count):
+    splits = []
+    i = 0
+    while i < count:
+        if color > 255:
+            splits.append(255)
+            color = color - 255
+        elif color > 0:
+            splits.append(color)
+            color = color - 255
+        else:
+            splits.append(0)
+        i += 1
+    return splits
+
+
+def splitHeight(pixels, count):
+    split_colors = []
+    for i in range(count):
+        split_colors.append([])
+
+
+    for pixel in pixels:
+        splits = splitColor(int(pixel),count)
+        for i in range(count):
+            split_colors[i].append(splits[i])
+
+    return split_colors
+
 
 

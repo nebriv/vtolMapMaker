@@ -1,1 +1,1 @@
-versionNumber = 1.2
+versionNumber = 1.3
