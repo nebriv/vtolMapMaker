@@ -240,7 +240,6 @@ offsetAmountSlider.oninput = function () {
 var latitudeValue = document.getElementById("latitudeValue");
 var longitudeValue = document.getElementById("longitudeValue");
 
-
 longitude = 0.0;
 latitude = 0.0;
 zoomLevel = 8;
@@ -252,9 +251,8 @@ mapCenter = null
 
 var popup = L.popup();
 
-
 function drawRectangle(){
-  var mapsize = document.getElementById("vtolmapsize").innerText * 1000 * 3;
+  var mapsize = document.getElementById("vtolmapsize").innerText * 1000;
   if (rectangle != null)
   {
     mymap.removeLayer(rectangle);
@@ -287,14 +285,13 @@ function onMapClick(e) {
     .openOn(mymap);
 
   mapCenter = e.latlng
-
+  latitudeValue.value = mapCenter.lat;
+  longitudeValue.value = mapCenter.lng;
   drawRectangle(mapCenter);
 }
 
 function onMapMove(e) {
   console.log(mymap.getCenter());
-  latitudeValue.value = mymap.getCenter().lat;
-  longitudeValue.value = mymap.getCenter().lng;
 }
 
 function setPosition(position) {

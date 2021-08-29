@@ -35,6 +35,10 @@ if not StaticDir:
 # create and configure the app
 app = Flask(__name__, instance_relative_config=True, static_folder=StaticDir)
 
+if app.debug:
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 # ensure the instance folder exists
 try:
     os.makedirs(app.instance_path)
@@ -107,15 +111,13 @@ def createMap():
         generateRoads = False
 
 
-    if zoomValue < 8 or zoomValue > 12:
+    if zoomValue < 8 or zoomValue > 64:
+        validationErrors.append({"zoomValue": "Zoom value outside of acceptable range."})
+
+    if not (zoomValue % 2) == 0:
         validationErrors.append({"zoomValue": "Invalid zoom value."})
-    zoomMapping = {8:64,
-                   9:32,
-                   10:16,
-                   11:13,
-                   12:8}
-    mapWidth = zoomMapping[zoomValue]
-    mapWidth = mapWidth * 1000 * 3
+
+    mapWidth = zoomValue * 1000 * 3
 
     if biome not in ValidSettings.biomes:
         validationErrors.append({"biome": "Invalid biome value"})

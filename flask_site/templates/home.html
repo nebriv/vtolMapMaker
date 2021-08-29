@@ -12,62 +12,65 @@
 
 {% block content %}
 
-<form id="mapGenerator" class="settings bg-light">
+
+<form id="mapGenerator" class="w-25 min-vw-25 settings bg-light">
     <h4 class="text-center">Settings</h4>
-    <ul class="settings-list bg-light">
-        <li>
-            <label>Map Name: </label>
-            <input type="text" id="name" placeholder="Map Name" name="mapName">
-        </li>
 
-        <li>
-            <label>VTOL Map Size = <span id="vtolmapsize">64</span> sq. km</span>
-            </label>
-            <input type="range" min="8" max="64" value="64" class="slider" id="zoomSlider" name="zoomValue" />
-        </li>
+        <div class="row mb-1">
+              <div class="form-floating">
+                <input type="text" class="form-control" id="mapName" placeholder="Map Name" name="mapName">
+                <label for="mapName">Map Name</label>
+            </div>
+        </div>
 
-        <li>
-            <label>Map Center: </label>
+
+        <div class="mb-1">
+            <label for="zoomSlider" class="form-label">VTOL Map Size: <span id="vtolmapsize">64</span> sq. km</span></label>
+            <input type="range" step="2" min="8" max="64" value="64" class="slider" id="zoomSlider" name="zoomValue" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Map Center: </label>
             <input id="latitudeValue" value="Latitude" name="latitudeValue" placeholder="Latitude">
             <input id="longitudeValue" value="Longitude" name="longitudeValue" placeholder="Longitude">
-        </li>
+        </div>
 
-        <li>
-            <input type="button" value="My Location" id="mylocation">
-        </li>
+        <div class="mb-1">
+            <input type="button" value="My Location" id="mylocation" class="btn btn-primary btn-sm">
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Disable City Paint: </label>
             <input type="checkbox" id="disableCityPaint" name="disableCityPaint">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>City Paint Removal: <span id="cityAdjustValue">10</span>% removed</label>
             <input type="range" id="cityAdjust" min="1" max="95" value="10" class="slider" name="cityAdjust">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Generate Roads: </label>
             <input type="checkbox" id="generateRoads" checked name="generateRoads">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Minimum Highway Length: <span id="minimumHighwayLengthValue">5</span></label>
             <input type="range" id="minimumHighwayLength" min="1" max="20" value="5" class="slider"
                 name="minHighwayLength">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Force below zero (Forces more water into vtol map): </label>
             <input type="checkbox" id="forceBelowZero" name="forceBelowZero">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Below water amount <span id="offsetAmountSliderValue">15</span></label>
             <input type="range" id="offsetAmountSlider" min="0" max="100" value="15" class="slider" name="offsetAmount">
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Map Resolution</label>
             <select id="mapResolution" name="mapResolution">
                 <option value="512">512</option>
@@ -75,74 +78,28 @@
                 <option value="128">128</option>
                 <option value="64">64</option>
             </select>
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Edge Type</label>
             <select id="edgeType" name="edgeType">
                 <option value="Hills">Hills</option>
             </select>
-        </li>
+        </div>
 
-        <li>
+        <div class="mb-1">
             <label>Biome Type</label>
             <select id="biome" name="biome">
                 <option value="Boreal">Boreal</option>
             </select>
-        </li>
-    </ul>
+        </div>
 
-    <button id="submitButton" type="submit" form="mapGenerator" value="Submit" class="w-100">
+    <button id="submitButton" type="submit" form="mapGenerator" value="Submit" class="btn btn-outline-primary">
         <span id="count">Submit</span>
     </button>
 
-    <!--
-    <div class="locationContainer">
-        <label>Map Name: </label>
-        <input type="text" id="namxe" placeholder="Map Name" name="mapName">
-    </div>
-    <div class="zoomContainer">
-
-    </div>
-    <div class="locationContainer">
-
-    </div>
-
-    <div class="disableCityPaint">
-
-    </div>
-    <div class="cityAdjust" id="cityAdjustContainer">
-
-    </div>
-    <div class="generateRoads">
-
-    </div>
-    <div class="minHighwayLength" id="minHighwayLengthContainer">
-
-    </div>
-    <div class="forceBelowZero">
-
-    </div>
-    <div class="offsetAmount" id="offsetContainer" style="display: none">
-
-    </div>
-            <div class="mapWidth">
-                <label>Map Size: <span id="mapWidthSliderValue">64</span></label>
-                <input type="range" id="mapWidthSlider" min="8" max="64" value="64" class="slider" name="mapWidth">
-            </div>
-    <div class="resolution">
-
-    </div>
-    <div class="edgeType">
-
-    </div>
-    <div class="biome">
-
-    </div>
-
-    -->
-
 </form>
+
 <div id="mapid"></div>
 
 <div id="results" style="display: none">

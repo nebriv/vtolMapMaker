@@ -1,6 +1,9 @@
 .settings {
   float: right;
   margin-right: 15px;
+  padding-right: 2rem;
+  padding-left: 2rem;
+  padding-bottom: 1rem;
 }
 
 .settings-list {

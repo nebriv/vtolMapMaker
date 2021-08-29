@@ -82,9 +82,6 @@
             -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
         }
 
-
-
-
     </style>
 </head>
 <body>
@@ -114,12 +111,16 @@
 
     </div>
 </nav>
-{% block content %}{% endblock %}
+
+
+<div class="container-fluid">
+    {% block content %}{% endblock %}
+</div>
+
 
 {% block scripts %}
 
 {% endblock %}
-
 </body>
 
 </html>
