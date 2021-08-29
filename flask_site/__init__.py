@@ -99,11 +99,10 @@ def createMap():
     forceRefresh = False
     rebuildCity = True
 
-    if "disableCityPaint" in settings:
-        disableCityPaint = True
-    else:
+    if "enableCityPaint" in settings:
         disableCityPaint = False
-
+    else:
+        disableCityPaint = True
 
     if "generateRoads" in settings:
         generateRoads = True

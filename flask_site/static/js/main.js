@@ -3,10 +3,23 @@
 var uuid = false;
 var done = false;
 
+var longitude = 0.0;
+var latitude = 0.0;
+var zoomLevel = 8;
+
+var mymap = L.map('mapid').setView([longitude, latitude], zoomLevel);
+var rectangle = null;
+
+var mapCenter = null;
+
+var popup = L.popup();
+
 function showImage(uuid) {
-  var val = document.getElementById('imagename').value, src = '/api/maps/' + uuid + '/getImage', img = document.createElement('img');
+  var val = document.getElementById('imagename').value
+  src = '/api/maps/' + uuid + '/getImage'
+  img = document.getElementById("imagename")
   img.src = src;
-  document.body.appendChild(img);
+
 }
 
 function downloadMap(uuid) {
@@ -22,7 +35,8 @@ downloadButton.addEventListener("click", function (event) {
 });
 var statusCounter = 0;
 function getStatus() {
-  document.getElementById("generator").style.display = "none";
+  // document.getElementById("mapGenerator").style.display = "none";
+  jQuery('#exampleModalCenter').modal({"show": true})
   document.getElementById("results").style.display = "block";
   const XHR = new XMLHttpRequest();
   XHR.responseType = "json";
@@ -30,6 +44,12 @@ function getStatus() {
   // Define what happens on successful data submission
   XHR.addEventListener("load", function (event) {
     status = event.target.response.Status;
+    progess = event.target.response.Progress;
+
+    if (progess != null){
+      document.getElementById("progressbar").setAttribute('aria-valuenow',progess);
+      document.getElementById("progressbar").setAttribute('style','width:'+Number(progess)+'%');
+    }
 
     if (event.target.response.Status === "Error") {
       document.getElementById("currentStatus").innerText = event.target.response.Error
@@ -38,7 +58,7 @@ function getStatus() {
       statusCounter++;
       document.getElementById("currentStatus").innerText = status
 
-      if (statusCounter % 5 === 0) {
+      if (statusCounter % 10 === 0) {
         document.getElementById("currentStatus").innerText = document.getElementById("currentStatus").innerText + " - Don't worry, we're still processing!"
       }
 
@@ -47,6 +67,8 @@ function getStatus() {
       document.getElementById("currentStatus").innerText = "Completed!"
       showImage(uuid);
       document.getElementById("download").style.display = 'block'
+      statusCounter = 0;
+      document.getElementById("downloadButton").setAttribute('class', 'btn btn-success');
     }
 
   });
@@ -146,14 +168,6 @@ window.addEventListener("load", function () {
   });
 });
 
-var zoomMapping = {
-  8: 64,
-  9: 32,
-  10: 16,
-  11: 13,
-  12: 8
-}
-
 var zoomSlider = document.getElementById("zoomSlider");
 var zoomValue = document.getElementById("zoomValue");
 var vtolmapsize = document.getElementById("vtolmapsize");
@@ -182,11 +196,11 @@ document.getElementById("forceBelowZero").addEventListener('change', (event) => 
   }
 })
 
-document.getElementById("disableCityPaint").addEventListener('change', (event) => {
+document.getElementById("enableCityPaint").addEventListener('change', (event) => {
   if (event.currentTarget.checked) {
-    document.getElementById("cityAdjustContainer").style.display = "none";
-  } else {
     document.getElementById("cityAdjustContainer").style.display = "block";
+  } else {
+    document.getElementById("cityAdjustContainer").style.display = "none";
   }
 })
 
@@ -225,11 +239,7 @@ document.getElementById("latitudeValue").addEventListener('change', (event) => {
   console.log(position);
   setPosition(position)
 })
-// var mapWidthSlider = document.getElementById("mapWidthSlider");
-// var mapWidthSliderValue = document.getElementById("mapWidthSliderValue");
-// mapWidthSlider.oninput = function() {
-//   mapWidthSliderValue.innerHTML = this.value;
-// }
+
 
 var offsetAmountSlider = document.getElementById("offsetAmountSlider");
 var offsetAmountSliderValue = document.getElementById("offsetAmountSliderValue");
@@ -239,17 +249,6 @@ offsetAmountSlider.oninput = function () {
 
 var latitudeValue = document.getElementById("latitudeValue");
 var longitudeValue = document.getElementById("longitudeValue");
-
-longitude = 0.0;
-latitude = 0.0;
-zoomLevel = 8;
-console.log("Starting")
-mymap = L.map('mapid').setView([longitude, latitude], zoomLevel);
-rectangle = null
-
-mapCenter = null
-
-var popup = L.popup();
 
 function drawRectangle(){
   var mapsize = document.getElementById("vtolmapsize").innerText * 1000;
@@ -273,6 +272,8 @@ function drawRectangle(){
 
     // create an orange rectangle
     rectangle = L.rectangle(bounds, { color: "#00FF00", weight: 1 }).addTo(mymap);
+  } else {
+    console.log("mapCenter is null!");
   }
 
 
@@ -284,10 +285,10 @@ function onMapClick(e) {
     .setContent("Map Center")
     .openOn(mymap);
 
-  mapCenter = e.latlng
+  mapCenter = e.latlng;
   latitudeValue.value = mapCenter.lat;
   longitudeValue.value = mapCenter.lng;
-  drawRectangle(mapCenter);
+  drawRectangle();
 }
 
 function onMapMove(e) {
@@ -297,7 +298,12 @@ function onMapMove(e) {
 function setPosition(position) {
   latitude = position.coords.latitude;
   longitude = position.coords.longitude;
+  latitudeValue.value = position.coords.latitude;
+  longitudeValue.value = position.coords.longitude;
+  mapCenter.lat = position.coords.latitude;
+  mapCenter.lng = position.coords.longitude;
   mymap.setView([latitude, longitude], zoomLevel)
+  drawRectangle();
 }
 
 
@@ -322,6 +328,8 @@ L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_toke
 
 
 mymap.setView([39.29084059412512, -76.61540335349957],7)
+console.log(mymap.getCenter());
+mapCenter = mymap.getCenter();
 mymap.on('click', onMapClick);
-mymap.on('moveend', onMapMove);
+// mymap.on('moveend', onMapMove);
 
