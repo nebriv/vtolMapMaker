@@ -36,7 +36,7 @@ downloadButton.addEventListener("click", function (event) {
 var statusCounter = 0;
 function getStatus() {
   // document.getElementById("mapGenerator").style.display = "none";
-  jQuery('#exampleModalCenter').modal({"show": true})
+  jQuery('#statusModal').modal({"show": true})
   document.getElementById("results").style.display = "block";
   const XHR = new XMLHttpRequest();
   XHR.responseType = "json";
@@ -46,15 +46,15 @@ function getStatus() {
     status = event.target.response.Status;
     progess = event.target.response.Progress;
 
+
     if (progess != null){
       document.getElementById("progressbar").setAttribute('aria-valuenow',progess);
       document.getElementById("progressbar").setAttribute('style','width:'+Number(progess)+'%');
     }
 
-    if (event.target.response.Status === "Error") {
+    if (status === "Error") {
       document.getElementById("currentStatus").innerText = event.target.response.Error
     } else if (status !== "Done") {
-
       statusCounter++;
       document.getElementById("currentStatus").innerText = status
 

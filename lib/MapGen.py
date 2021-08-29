@@ -265,7 +265,7 @@ class MapGen(threading.Thread):
             self.status = {"Status": "Creating height map", "Progress": 80}
             self.heightMap = self.generateSingleMap(generatedPixels, self.settings.resolution, heightMapFile)
 
-            self.status = {"Status": "Creating split height map"}
+            self.status = {"Status": "Creating split height map", "Progress": 85}
             self.generateSplitMap(generatedPixels, self.settings.resolution, heightMapFile, 4)
 
             self.status = {"Status": "Creating zip", "Progress": 90}
