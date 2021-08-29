@@ -253,15 +253,16 @@ class MapGen(threading.Thread):
 
             heightMapFile = os.path.join(mapFolder, "height.png")
             logger.debug("Creating Height Map: %s" % heightMapFile)
-            self.status = {"Status": "Creating height map"}
+            self.status = {"Status": "Wrangling pixels"}
 
 
             #heights = smoothPoints(heights, 5)
 
             generatedPixels = self.generatePixels(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust)
-
+            self.status = {"Status": "Creating height map"}
             self.heightMap = self.generateSingleMap(generatedPixels, self.settings.resolution, heightMapFile)
 
+            self.status = {"Status": "Creating split height map"}
             self.generateSplitMap(generatedPixels, self.settings.resolution, heightMapFile, 4)
 
             self.status = {"Status": "Creating zip"}
@@ -661,58 +662,6 @@ class MapGen(threading.Thread):
                         greenValue = 0
 
 
-                    # forward_index = index+10
-                    # if forward_index > width * width:
-                    #     forward_index = width * width
-                    #
-                    #
-                    # backward_index = index-10
-                    # if backward_index < 0:
-                    #     backward_index = 0
-                    #
-                    # up_indexes = []
-                    # for u_i in range(3):
-                    #     up_i = index + (u_i * width)
-                    #     if up_i > width * width:
-                    #         break
-                    #     try:
-                    #         up_indexes.append(heights[up_i])
-                    #     except IndexError as err:
-                    #         break
-                    #
-                    #
-                    #
-                    # down_indexes = []
-                    # for d_i in range(3):
-                    #     down_i = index - (d_i * width)
-                    #     if down_i <= 0:
-                    #         break
-                    #     try:
-                    #         down_indexes.append(heights[down_i])
-                    #     except IndexError as err:
-                    #         break
-                    #
-                    # average_up = np.mean(up_indexes)
-                    # average_down = np.mean(down_indexes)
-                    # average_forward = np.mean(heights[index:forward_index])
-                    # average_backward = np.mean(heights[backward_index:index])
-                    # adjancents = np.mean([average_backward, average_up, average_forward, average_down])
-                    # #
-                    # if average_forward == np.nan:
-                    #     average_forward = 0
-                    # if average_backward == np.nan:
-                    #     average_backward = 0
-                    # if height < 0:
-                    #     if height < adjancents:
-                    #         logger.debug("Height (%s) is below adjacent averages - %s" % (height, adjancents))
-                    #         height = height + adjancents
-                    #         logger.debug("New Height %s" % height)
-                    # if height < 50 and height > 0:
-                    #     logger.debug("Height less than 50")
-                    #     height = height * 1.2
-                    # elif height < 25 and height > -10:
-                    #     logger.debug("Height less than 20")
-                    #     height = height * 1.5
                     if height > 6000:
                         height = 6000
 

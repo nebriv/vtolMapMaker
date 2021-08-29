@@ -96,13 +96,12 @@ if __name__ == "__main__":
     biome = "Boreal"
     edgeType = "hills"
 
-    # Cape Code NOT FLIPPED???
     centerLong = -70.27130126953126
     centerLat = 41.93701966042529
 
-    # NYC FLIPPED????
-    centerLong = -73.972005
-    centerLat = 40.773345
+
+    # centerLong = -73.972005
+    # centerLat = 40.773345
 
     # Meters
     mapWidth = 192000
