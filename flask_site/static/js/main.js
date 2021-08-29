@@ -153,12 +153,14 @@ var zoomMapping = {
   11: 13,
   12: 8
 }
+
 var zoomSlider = document.getElementById("zoomSlider");
 var zoomValue = document.getElementById("zoomValue");
 var vtolmapsize = document.getElementById("vtolmapsize");
+
 zoomSlider.oninput = function () {
-  mymap.setZoom(this.value);
-  vtolmapsize.innerHTML = zoomMapping[this.value];
+  vtolmapsize.innerHTML = this.value * 3;
+  drawRectangle(mymap.getCenter(), this.value);
 }
 
 var citySlider = document.getElementById("cityAdjust");
@@ -246,8 +248,37 @@ console.log("Starting")
 mymap = L.map('mapid').setView([longitude, latitude], zoomLevel);
 rectangle = null
 
+mapCenter = null
+
 var popup = L.popup();
 
+
+function drawRectangle(){
+  var mapsize = document.getElementById("vtolmapsize").innerText * 1000 * 3;
+  if (rectangle != null)
+  {
+    mymap.removeLayer(rectangle);
+  }
+
+  if (mapCenter != null){
+    widthInDegrees = mapsize / 111111;
+
+    westLong = mapCenter.lng - (widthInDegrees / 2)
+    northLat = mapCenter.lat + (widthInDegrees / 2)
+
+    eastLong = westLong + widthInDegrees
+    southLat = northLat - widthInDegrees
+
+
+    // define rectangle geographical bounds
+    var bounds = [[northLat, westLong], [southLat, eastLong]];
+
+    // create an orange rectangle
+    rectangle = L.rectangle(bounds, { color: "#00FF00", weight: 1 }).addTo(mymap);
+  }
+
+
+}
 
 function onMapClick(e) {
   popup
@@ -255,34 +286,9 @@ function onMapClick(e) {
     .setContent("Map Center")
     .openOn(mymap);
 
-  latitudeValue.value = e.latlng.lat;
-  longitudeValue.value = e.latlng.lng;
+  mapCenter = e.latlng
 
-  if (rectangle != null)
-  {
-    mymap.removeLayer(rectangle);
-  }
-
-  widthInDegrees = 192000 / 111111;
-
-  westLong = e.latlng.lng - (widthInDegrees / 2)
-  northLat = e.latlng.lat + (widthInDegrees / 2)
-
-  eastLong = westLong + widthInDegrees
-  southLat = northLat - widthInDegrees
-
-  
-  // define rectangle geographical bounds
-  var bounds = [[northLat, westLong], [southLat, eastLong]];
-
-  // create an orange rectangle
-  rectangle = L.rectangle(bounds, { color: "#00FF00", weight: 1 }).addTo(mymap);
-}
-
-function onZoom(e) {
-  zoomValue.innerHTML = mymap.getZoom();
-  zoomSlider.value = mymap.getZoom();
-  vtolmapsize.innerHTML = zoomMapping[mymap.getZoom()];
+  drawRectangle(mapCenter);
 }
 
 function onMapMove(e) {
@@ -309,7 +315,7 @@ getlocation.addEventListener("click", function (event) {
 
 L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
   maxZoom: 12,
-  minZoom: 8,
+  minZoom: 2,
   attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
     'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
   id: 'mapbox/streets-v11',
@@ -317,7 +323,8 @@ L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_toke
   zoomOffset: -1
 }).addTo(mymap);
 
+
+mymap.setView([39.29084059412512, -76.61540335349957],7)
 mymap.on('click', onMapClick);
-mymap.on('zoomend', onZoom);
 mymap.on('moveend', onMapMove);
 
