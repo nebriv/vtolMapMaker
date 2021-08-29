@@ -125,7 +125,9 @@ class MapGen(threading.Thread):
             # Get points between locations for use with height map and tile fetch
             coordinate_list = getPoints(self.settings.resolution, southLat, westLong, eastLong, distanceBetween)
 
-            self.status = {"Status": "Collecting area roads and airports"}
+
+            self.status = {"Status": "Collecting area roads and airports", "Progress": 10}
+
 
             if len(coordinate_list) > 0:
 
@@ -157,7 +159,9 @@ class MapGen(threading.Thread):
             # Getting city build up data
             if not self.settings.disableCityPaint:
                 if self.settings.rebuildCity or not cachedData:
-                    self.status = {"Status": "Collecting city build up information"}
+
+                    self.status = {"Status": "Collecting city build up information", "Progress": 25}
+
                     buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween, westLong, eastLong)
                     logger.debug("Max Build Up: %s" % maxBuildup)
                     logger.debug("Min Build Up: %s" % minBuildup)
