@@ -197,6 +197,7 @@ class MapGen(threading.Thread):
             logger.debug("Max Height: %s" % maxHeight)
 
             vtolvr_heightoffset = 0
+
             if self.settings.forceBelowZero:
                 self.status = {"Status": "Running height map offset calculations"}
                 vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
@@ -216,6 +217,30 @@ class MapGen(threading.Thread):
                     if height < 0:
                         c += 1
                 logger.debug("number of heights below 0: %s" % c)
+
+
+            if self.settings.heightOffset:
+                heights = offsetHeights(heights, self.settings.heightOffset)
+                vtolvr_heightoffset += self.settings.heightOffset
+
+            # logger.debug("Smoothing height map")
+            # heights = smoothPoints(heights, smoothness=10)
+
+
+            heightData = {"heights": heights, "minHeight": minHeight, "maxHeight": maxHeight,
+                          "builduplist": buildup_list,
+                          "minBuildup": minBuildup, "maxBuildup": maxBuildup, 'centerLat': self.settings.centerLat,
+                          'centerLong': self.settings.centerLong, 'mapWidth': self.settings.mapWidth}
+
+            pickle.dump(heightData, open(os.path.join("dataSets", "%s.p" % dataHash), "wb"))
+
+            heights = heightData['heights']
+            minHeight = heightData['minHeight']
+            maxHeight = heightData['maxHeight']
+
+            logger.debug("Min Height: %s" % minHeight)
+            logger.debug("Max Height: %s" % maxHeight)
+
 
             if self.settings.generateRoads:
                 highwaySegments = self.generateHighways(highways, vtolvr_heightoffset, latOffset, longOffset)
@@ -552,8 +577,6 @@ class MapGen(threading.Thread):
         heightDiff = maxHeight - minHeight;
         scaleFactor = 1.0
 
-        scaling_mode = None
-
         pixel_scale = 5.8823529411764
 
         logger.debug(heightDiff)
@@ -620,7 +643,7 @@ class MapGen(threading.Thread):
 
                     height = heights[index] + 3
 
-                    if scaling_mode == "exaggerated":
+                    if self.settings.scalingMode == "exaggerated":
                         height += .5
                         height_scale = height / mean_height
                         if height_scale > .1:
@@ -685,10 +708,14 @@ class MapGen(threading.Thread):
                         height = height * 1.25
 
                     if greenValue > 20:
-                        if height < 20:
+                        if height < 0:
                             greenValue = 0
-                        elif height < 30:
-                            height = 30
+                        elif height < 10:
+                            greenValue = greenValue * .75
+                        elif height < 20:
+                            greenValue = greenValue * .85
+                        elif height < 20:
+                            height = 20
 
                     redValue = height/pixel_scale
 

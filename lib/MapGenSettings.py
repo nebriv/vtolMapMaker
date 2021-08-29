@@ -27,10 +27,12 @@ class GenSettings:
     edgeType = "Hills"
     biome = "Boreal"
     delay = 0
+    heightOffset = 0
+    scalingMode = None
 
     def __init__(self, bingAPIKey=None, nextzenAPIKey=None, outputDir=None, ghsParser=None, uuid=None, delay=0, centerLong=0, centerLat=0, forceBelowZero=True, forceRefresh=False, rebuildCity=True,
                  disableCityPaint=False, cityAdjust=10, resolution=512, offsetAmount=15, mapWidth=192000,
-                 minHighwayLength=5, mapName=None, generateRoads=True, edgeType="Hills", biome="Boreal", disablePrefabs=False):
+                 minHighwayLength=5, mapName=None, generateRoads=True, edgeType="Hills", biome="Boreal", disablePrefabs=False, heightOffset=0, scalingMode=None):
 
         self.bingAPIKey = bingAPIKey
         self.nextzenAPIKey = nextzenAPIKey
@@ -54,3 +56,5 @@ class GenSettings:
         self.biome = biome
         self.delay = delay
         self.disablePrefabs = disablePrefabs
+        self.heightOffset = heightOffset
+        self.scalingMode = scalingMode
