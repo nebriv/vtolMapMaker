@@ -37,6 +37,7 @@ var statusCounter = 0;
 function getStatus() {
   // document.getElementById("mapGenerator").style.display = "none";
   jQuery('#statusModal').modal({"show": true})
+
   document.getElementById("results").style.display = "block";
   const XHR = new XMLHttpRequest();
   XHR.responseType = "json";
@@ -54,19 +55,33 @@ function getStatus() {
 
     if (status === "Error") {
       document.getElementById("currentStatus").innerText = event.target.response.Error
+      document.getElementById("currentStatusExtended").innerText = "";
     } else if (status !== "Done") {
-      statusCounter++;
-      document.getElementById("currentStatus").innerText = status
 
-      if (statusCounter % 10 === 0) {
-        document.getElementById("currentStatus").innerText = document.getElementById("currentStatus").innerText + " - Don't worry, we're still processing!"
+      if (document.getElementById("currentStatus").innerText == status){
+        statusCounter++;
+      } else{
+        statusCounter = 0;
+        document.getElementById("currentStatus").innerText = status;
+        document.getElementById("currentStatusExtended").innerText = "";
+      }
+
+      if (statusCounter >= 60) {
+        document.getElementById("currentStatusExtended").innerText = "If you see this message for longer than 60 seconds please seek the developer."
+      } else if (statusCounter >= 30) {
+        document.getElementById("currentStatusExtended").innerText = "I swear, this never happens. Just a little bit longer!"
+      } else if (statusCounter >= 15) {
+        document.getElementById("currentStatusExtended").innerText = "It's taking a little while to get all the data!"
+      } else if (statusCounter >= 5) {
+        document.getElementById("currentStatusExtended").innerText = "Don't worry, we're still processing!"
       }
 
       setTimeout(getStatus, 1000);
     } else {
       document.getElementById("currentStatus").innerText = "Completed!"
+      document.getElementById("currentStatusExtended").innerText = "";
       showImage(uuid);
-      document.getElementById("download").style.display = 'block'
+      document.getElementById("imgContainer").style.display = 'block'
       statusCounter = 0;
       document.getElementById("downloadButton").setAttribute('class', 'btn btn-success');
     }
