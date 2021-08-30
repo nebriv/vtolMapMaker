@@ -135,7 +135,7 @@ window.addEventListener("load", function () {
       // FD.forEach((value, key) => object[key] = value);
       var jsonData = JSON.stringify(Object.fromEntries(FD));
 
-      document.getElementById("imgContainer").style.display = 'block'
+      document.getElementById("imgContainer").style.display = 'none'
       statusCounter = 0;
       document.getElementById("downloadButton").setAttribute('class', 'btn btn-secondary disabled');
 
