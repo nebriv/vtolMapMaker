@@ -13,7 +13,7 @@
 
 #mapid {
   width: 100vw;
-  height: 100%;
+  height: 90vh;
   z-index: -1;
   position:absolute;
 }

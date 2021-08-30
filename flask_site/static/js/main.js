@@ -14,6 +14,8 @@ var mapCenter = null;
 
 var popup = L.popup();
 
+var processing = false;
+
 function showImage(uuid) {
   var val = document.getElementById('imagename').value
   src = '/api/maps/' + uuid + '/getImage'
@@ -56,6 +58,7 @@ function getStatus() {
     if (status === "Error") {
       document.getElementById("currentStatus").innerText = event.target.response.Error
       document.getElementById("currentStatusExtended").innerText = "";
+      processing = false;
     } else if (status !== "Done") {
 
       if (document.getElementById("currentStatus").innerText == status){
@@ -78,6 +81,7 @@ function getStatus() {
 
       setTimeout(getStatus, 1000);
     } else {
+      processing = false;
       document.getElementById("currentStatus").innerText = "Completed!"
       document.getElementById("currentStatusExtended").innerText = "";
       showImage(uuid);
@@ -121,55 +125,65 @@ function countDown() {
 
 window.addEventListener("load", function () {
   function sendData() {
+    if (processing != true){
+      processing = true;
+      const XHR = new XMLHttpRequest();
+      // XHR.responseType = "json";
 
-    const XHR = new XMLHttpRequest();
-    // XHR.responseType = "json";
+      // Bind the FormData object and the form element
+      const FD = new FormData(form);
+      // FD.forEach((value, key) => object[key] = value);
+      var jsonData = JSON.stringify(Object.fromEntries(FD));
 
-    // Bind the FormData object and the form element
-    const FD = new FormData(form);
-    // FD.forEach((value, key) => object[key] = value);
-    var jsonData = JSON.stringify(Object.fromEntries(FD));
-    // Define what happens on successful data submission
-    XHR.addEventListener("load", function (event) {
+      document.getElementById("imgContainer").style.display = 'block'
+      statusCounter = 0;
+      document.getElementById("downloadButton").setAttribute('class', 'btn btn-secondary disabled');
 
-      if (event.target.status !== 200) {
-        if (event.target.responseText.includes("currently overloaded")) {
-          alert("We're currently overloaded, please try resubmitting in a few minutes.")
-          countDown();
-        } else {
+      // Define what happens on successful data submission
+      XHR.addEventListener("load", function (event) {
 
-        }
+        if (event.target.status !== 200) {
+          if (event.target.responseText.includes("currently overloaded")) {
+            alert("We're currently overloaded, please try resubmitting in a few minutes.")
+            processing = false;
+            countDown();
+          } else {
 
-      } else {
-        var response = JSON.parse(event.target.responseText);
-        if (response.errors === false) {
-          uuid = response.uuid;
-          setTimeout(getStatus, 100);
-        } else {
-          errordata = "";
-          console.log(response.errors)
-
-          for (var key in response.errors) {
-            if (response.errors.hasOwnProperty(key)) {
-              errordata += response.errors[key] + " ";
-            }
           }
-          alert(errordata);
+
+        } else {
+          var response = JSON.parse(event.target.responseText);
+          if (response.errors === false) {
+            uuid = response.uuid;
+            setTimeout(getStatus, 100);
+          } else {
+            errordata = "";
+            console.log(response.errors)
+            processing = false;
+            for (var key in response.errors) {
+              if (response.errors.hasOwnProperty(key)) {
+                errordata += response.errors[key] + " ";
+              }
+            }
+            alert(errordata);
+          }
         }
-      }
 
-    });
+      });
 
-    // Define what happens in case of error
-    XHR.addEventListener("error", function (event) {
-      alert('Oops! Something went wrong.');
-    });
-    // Set up our request
-    XHR.open("POST", "/api/maps/createMap");
-    XHR.setRequestHeader("Content-Type", "application/json");
+      // Define what happens in case of error
+      XHR.addEventListener("error", function (event) {
+        alert('Oops! Something went wrong.');
+      });
+      // Set up our request
+      XHR.open("POST", "/api/maps/createMap");
+      XHR.setRequestHeader("Content-Type", "application/json");
 
-    // The data sent is what the user provided in the form
-    XHR.send(jsonData);
+      // The data sent is what the user provided in the form
+      XHR.send(jsonData);
+    } else {
+      jQuery('#statusModal').modal({"show": true})
+    }
 
   }
 

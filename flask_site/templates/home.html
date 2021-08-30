@@ -41,7 +41,7 @@
     </div>
 </div>
 
-<form id="mapGenerator" class="w-25 min-vw-25 settings bg-light">
+<form id="mapGenerator" class="col-2 settings bg-light">
     <h4 class="text-center">Settings</h4>
 
     <div class="row mb-1">
@@ -61,7 +61,7 @@
         <label for="latitudeValue" class="form-label">Map Center: </label>
         <input id="latitudeValue" name="latitudeValue" placeholder="Latitude" required>
         <input id="longitudeValue" name="longitudeValue" placeholder="Longitude" required>
-        <input type="button" value=" Use My Location" id="mylocation" class="btn btn-primary btn-sm mt-1">
+        <input type="button" value=" Use My Location" id="mylocation" class="btn btn-outline-primary btn-sm mt-1">
         <small id="mylocationHelp" class="form-text text-muted">
             Location information is only saved in a hashed format and is used for caching data. Server side cache is cleared periodically and on rebuilds.
         </small>
@@ -145,7 +145,7 @@
     </div>
 
     <div class="row mt-3">
-        <button id="submitButton" type="submit" form="mapGenerator" value="Submit" class="btn btn-outline-primary">
+        <button id="submitButton" type="submit" form="mapGenerator" value="Submit" class="btn btn-primary">
             <span id="count">Submit</span>
         </button>
     </div>
