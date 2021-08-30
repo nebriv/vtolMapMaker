@@ -74,14 +74,14 @@ class MapGenManager:
 
     def get_zip(self, uuid):
         if uuid in self.generation_threads:
-            if self.generation_threads[uuid].status == {"Status": "Done"}:
+            if self.generation_threads[uuid].status['Status'] == "Done":
                 return self.generation_threads[uuid].zipFile
 
         return False
 
     def get_heightmap_image(self, uuid):
         if uuid in self.generation_threads:
-            if self.generation_threads[uuid].status == {"Status": "Done"}:
+            if self.generation_threads[uuid].status['Status'] == "Done":
                 return self.generation_threads[uuid].heightMap
 
         return False

@@ -61,7 +61,7 @@ class MapGen(threading.Thread):
 
             sleep_counter = math.ceil(self.settings.delay)
             while sleep_counter > 0:
-                self.status = {"Status": "Waiting in fake queue - %s" % sleep_counter}
+                self.status = {"Status": "Waiting in fake queue - %s" % sleep_counter, "Progress": 1}
                 time.sleep(1)
                 sleep_counter -= 1
         try:
@@ -82,7 +82,7 @@ class MapGen(threading.Thread):
             if not os.path.isdir(mapFolder):
                 os.makedirs(mapFolder)
 
-            self.status = {"Status": "Calculating map width and resolution information"}
+            self.status = {"Status": "Calculating map width and resolution information", "Progress": 10}
 
             widthInDegrees = self.settings.mapWidth / 111111
 
@@ -126,7 +126,7 @@ class MapGen(threading.Thread):
             coordinate_list = getPoints(self.settings.resolution, southLat, westLong, eastLong, distanceBetween)
 
 
-            self.status = {"Status": "Collecting area roads and airports", "Progress": 10}
+            self.status = {"Status": "Collecting area roads and airports", "Progress": 20}
 
 
             if len(coordinate_list) > 0:
@@ -160,7 +160,7 @@ class MapGen(threading.Thread):
             if not self.settings.disableCityPaint:
                 if self.settings.rebuildCity or not cachedData:
 
-                    self.status = {"Status": "Collecting city build up information", "Progress": 25}
+                    self.status = {"Status": "Collecting city build up information", "Progress": 30}
 
                     buildup_list, maxBuildup, minBuildup = self.settings.ghsParser.getBuildupData(self.settings.resolution, southLat, distanceBetween, westLong, eastLong)
                     logger.debug("Max Build Up: %s" % maxBuildup)
@@ -179,31 +179,14 @@ class MapGen(threading.Thread):
             if cachedData and not self.settings.forceRefresh:
                 heights, minHeight, maxHeight = cachedData['heights'], cachedData['minHeight'], cachedData['maxHeight']
             else:
-                self.status = {"Status": "Collecting height map data."}
+                self.status = {"Status": "Collecting height map data.", "Progress": 40}
                 heights, minHeight, maxHeight = self.getOpenElevationBoundingBox(coordinate_list)
 
-            # logger.debug("Smoothing height map")
-            # heights = smoothPoints(heights, smoothness=10)
-
-
-            heightData = {"heights": heights, "minHeight": minHeight, "maxHeight": maxHeight,
-                          "builduplist": buildup_list,
-                          "minBuildup": minBuildup, "maxBuildup": maxBuildup, 'centerLat': self.settings.centerLat,
-                          'centerLong': self.settings.centerLong, 'mapWidth': self.settings.mapWidth}
-
-            pickle.dump(heightData, open(os.path.join("dataSets", "%s.p" % dataHash), "wb"))
-
-            heights = heightData['heights']
-            minHeight = heightData['minHeight']
-            maxHeight = heightData['maxHeight']
-
-            logger.debug("Min Height: %s" % minHeight)
-            logger.debug("Max Height: %s" % maxHeight)
 
             vtolvr_heightoffset = 0
 
             if self.settings.forceBelowZero:
-                self.status = {"Status": "Running height map offset calculations"}
+                self.status = {"Status": "Running height map offset calculations", "Progress": 50}
                 vtolvr_heightoffset = abs(self.settings.offsetAmount - minHeight)
                 logger.debug("Height Adjustment: %s" % vtolvr_heightoffset)
 
@@ -245,7 +228,6 @@ class MapGen(threading.Thread):
             logger.debug("Min Height: %s" % minHeight)
             logger.debug("Max Height: %s" % maxHeight)
 
-
             if self.settings.generateRoads:
                 highwaySegments = self.generateHighways(highways, vtolvr_heightoffset, latOffset, longOffset)
             else:
@@ -255,7 +237,7 @@ class MapGen(threading.Thread):
             logger.debug("Highway Count: %s" % len(highways))
             logger.debug("Major Road Count: %s" % len(majorRoads))
             logger.debug("Total Lat/Lon Points: %s" % len(coordinate_list))
-            self.status = {"Status": "Creating VTM data"}
+            self.status = {"Status": "Creating VTM data", "Progress": 60}
             self.vtmData = self.createVTM(self.settings.mapName, self.settings.mapName, "test", self.settings.mapWidth, self.settings.resolution, "HeightMap", self.settings.edgeType, self.settings.biome, "seed", airports, highwaySegments)
 
             vtmFile = os.path.join(mapFolder, mapNameFile)
@@ -282,23 +264,23 @@ class MapGen(threading.Thread):
 
             heightMapFile = os.path.join(mapFolder, "height.png")
             logger.debug("Creating Height Map: %s" % heightMapFile)
-            self.status = {"Status": "Wrangling pixels"}
 
+            self.status = {"Status": "Wrangling pixels", "Progress": 70}
 
             #heights = smoothPoints(heights, 5)
 
             generatedPixels = self.generatePixels(heights, self.settings.resolution, maxHeight, minHeight, buildups, self.settings.cityAdjust)
-            self.status = {"Status": "Creating height map"}
+            self.status = {"Status": "Creating height map", "Progress": 80}
             self.heightMap = self.generateSingleMap(generatedPixels, self.settings.resolution, heightMapFile)
 
-            self.status = {"Status": "Creating split height map"}
+            self.status = {"Status": "Creating split height map", "Progress": 85}
             self.generateSplitMap(generatedPixels, self.settings.resolution, heightMapFile, 4)
 
-            self.status = {"Status": "Creating zip"}
+            self.status = {"Status": "Creating zip", "Progress": 90}
             self.zipFile = os.path.join(uuid_folder, "%s.zip" % self.settings.mapName)
             zipdir(mapFolder, self.zipFile)
 
-            self.status = {"Status": "Done"}
+            self.status = {"Status": "Done", "Progress": 100}
         except Exception as error:
             if "Error" not in self.status:
                 self.status = {"Error": "An unknown error occurred while processing.", "Status": "Error"}
@@ -593,6 +575,9 @@ class MapGen(threading.Thread):
         logger.debug("Mean height: %s" % mean_height)
 
         logger.debug("Average height: %s" % np.average(heights))
+
+        # exit()
+        image = Image.new('RGBA', (width, width))
 
         maxGreen = 0
         minGreen = 300
