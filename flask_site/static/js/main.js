@@ -139,16 +139,23 @@ window.addEventListener("load", function () {
       statusCounter = 0;
       document.getElementById("downloadButton").setAttribute('class', 'btn btn-secondary disabled');
 
+      document.getElementById("submitWarning").style.display = 'none';
+      document.getElementById("submitWarning").innerHTML = "";
+      document.getElementById("submitError").style.display = 'none';
+      document.getElementById("submitError").innerHTML = "";
+
       // Define what happens on successful data submission
       XHR.addEventListener("load", function (event) {
 
         if (event.target.status !== 200) {
           if (event.target.responseText.includes("currently overloaded")) {
-            alert("We're currently overloaded, please try resubmitting in a few minutes.")
+            document.getElementById("submitWarning").style.display = 'block';
+            document.getElementById("submitWarning").innerHTML = "We're currently overloaded, please try resubmitting in a few minutes.";
             processing = false;
             countDown();
           } else {
-
+            document.getElementById("submitError").style.display = 'block';
+            document.getElementById("submitError").innerHTML = event.target.responseText;
           }
 
         } else {
@@ -165,7 +172,8 @@ window.addEventListener("load", function () {
                 errordata += response.errors[key] + " ";
               }
             }
-            alert(errordata);
+             document.getElementById("submitWarning").style.display = 'block';
+             document.getElementById("submitWarning").innerHTML = errordata;
           }
         }
 
@@ -173,7 +181,8 @@ window.addEventListener("load", function () {
 
       // Define what happens in case of error
       XHR.addEventListener("error", function (event) {
-        alert('Oops! Something went wrong.');
+         document.getElementById("submitError").style.display = 'block';
+         document.getElementById("submitError").innerHTML = errordata;
       });
       // Set up our request
       XHR.open("POST", "/api/maps/createMap");
@@ -304,7 +313,6 @@ function drawRectangle(){
   } else {
     console.log("mapCenter is null!");
   }
-
 
 }
 

@@ -29,11 +29,13 @@ NextZen = environ.get('NextZen')
 OutputDir = environ.get('OutputDir')
 StaticDir = environ.get('StaticDir')
 
+
 if not StaticDir:
     StaticDir = os.path.join(pathlib.Path(__file__).parent.resolve(), "static")
 
 # create and configure the app
 app = Flask(__name__, instance_relative_config=True, static_folder=StaticDir)
+
 
 if app.debug:
     app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -54,6 +56,7 @@ def inject_dict_for_all_templates():
 # a simple page that says hello
 @app.route('/')
 def hello():
+
     if generator.count_running_threads() > 5:
         return abort(503, description="Sorry - we're currently overloaded and cannont accept more map requests. Please try again shortly!")
 

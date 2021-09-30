@@ -43,7 +43,12 @@
 
 <form id="mapGenerator" class="col-2 settings bg-light">
     <h4 class="text-center">Settings</h4>
-
+    <div id="submitError" class="alert alert-danger" role="alert" style="display: none">
+      An unknown error occurred!
+    </div>
+    <div id="submitWarning" class="alert alert-warning" role="alert" style="display: none">
+      An unknown error occured!
+    </div>
     <div class="row mb-1">
         <div class="form-group">
             <label for="mapName">Map Name</label>
@@ -59,6 +64,9 @@
 
     <div class="row mb-3">
         <label for="latitudeValue" class="form-label">Map Center: </label>
+        <small class="form-text text-muted text-sm">
+            Click on the map to select Lat/Lon
+        </small>
         <input id="latitudeValue" name="latitudeValue" placeholder="Latitude" required>
         <input id="longitudeValue" name="longitudeValue" placeholder="Longitude" required>
         <input type="button" value=" Use My Location" id="mylocation" class="btn btn-outline-primary btn-sm mt-1">

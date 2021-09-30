@@ -11,6 +11,7 @@ import requests_cache
 from lib import elevationData
 import os
 import math
+import random
 r_headers = {"User-Agent": "VTOL Map Maker v%s (https://vtolmapmaker.nebriv.com)" % getVersion()}
 
 requests_cache.install_cache(cache_name='github_cache', backend='sqlite', expire_after=86400)
@@ -40,7 +41,7 @@ logger.setLevel('DEBUG')
 
 class MapGen(threading.Thread):
 
-    status = "Not Started"
+    status = {"Status": "Not Started", "Progress": 0}
     vtmData = None
     heightMap = None
     zipFile = None
@@ -61,7 +62,9 @@ class MapGen(threading.Thread):
 
             sleep_counter = math.ceil(self.settings.delay)
             while sleep_counter > 0:
-                self.status = {"Status": "Waiting in fake queue - %s" % sleep_counter, "Progress": 1}
+
+                randomQ = random.choice(self.settings.queueQuotes)
+                self.status = {"Status": "In Queue - %s" % randomQ, "Progress": 1}
                 time.sleep(1)
                 sleep_counter -= 1
         try:
@@ -427,11 +430,13 @@ class MapGen(threading.Thread):
             prefab_id += 1
 
         file_lines.append("\t}")
-        file_lines.append("\tBezierRoads")
-        file_lines.append("\t{")
 
-        # Roads
         if len(roads) > 0:
+            file_lines.append("\tBezierRoads")
+            file_lines.append("\t{")
+
+            # Roads
+
             file_lines.append("\t\tChunk")
             file_lines.append("\t\t{")
             file_lines.append("\t\t\tgrid = (0,0)")
@@ -453,7 +458,7 @@ class MapGen(threading.Thread):
 
             file_lines.append("\t\t}")
 
-        file_lines.append("\t}")
+            file_lines.append("\t}")
         file_lines.append("}")
 
         return file_lines
@@ -696,7 +701,7 @@ class MapGen(threading.Thread):
                     elif height < 90:
                         height = height * 1.25
 
-                    if greenValue > 20:
+                    if greenValue > 0:
                         if height < 0:
                             greenValue = 0
                         elif height < 10:
